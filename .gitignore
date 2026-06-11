@@ -5,3 +5,7 @@ Thumbs.db
 __pycache__/
 .tmp/
 *.log
+
+# Debug scripts with API tokens
+.omo/
+
