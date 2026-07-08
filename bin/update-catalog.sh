@@ -16,17 +16,17 @@ DATA_FILE="skills.json"
 echo "[*] Scanning $OWNER for repos ending with -skill ..."
 
 # Fetch all repos for the owner, filter by -skill suffix, exclude this repo
-REPOS=$(gh api "search/repositories?q=user:$OWNER&per_page=100" --jq '.' | jq --arg this "$THIS_REPO" '[.items[] | select(.name | endswith("-skill") and (.full_name != $this)) | {name, full_name, description, updated_at, html_url}]')
+REPOS=$(gh api "search/repositories?q=user:$OWNER&per_page=100" --jq '[.items[] | select(.name | endswith("-skill")) | select(.full_name != "cgartlab/cgartlab-skills") | {name, full_name, description, updated_at, html_url}]')
 
-TOTAL=$(echo "$REPOS" | jq 'length')
+TOTAL=$(echo "$REPOS" | jq 'length // 0')
 echo "[*] Found $TOTAL skill repo(s)"
 
 # Enrich each repo with latest release version
-SKILLS=$(echo "$REPOS" | jq -c '.[]' | while read -r repo; do
+SKILLS=$(echo "$REPOS" | jq -c '.[] // empty' | while read -r repo; do
   FULL_NAME=$(echo "$repo" | jq -r '.full_name')
   VERSION=$(gh api "/repos/$FULL_NAME/releases/latest" --jq '.tag_name // empty' || echo "")
   echo "$repo" | jq --arg v "$VERSION" '. + {version: $v}'
-done | jq -s '.')
+done | jq -s 'if . == null then [] else . end')
 
 # Write skills.json
 NOW=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
