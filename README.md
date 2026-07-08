@@ -11,7 +11,7 @@
 
 | Skill | Version | Description | Updated |
 |-------|---------|-------------|---------|
-| _暂无 skill 条目_ | _—_ | _—_ | _—_ |
+| [blacklight-weekly-skill](https://github.com/cgartlab/blacklight-weekly-skill) | v0.1.1 | An Agent Skill that automates the first-draft production of Blacklight Weekly. | 2026-07-08 |
 
 <sup>最后更新: 2026-07-08 · 自动检测 `*-skill` 仓库</sup>
 
@@ -37,7 +37,7 @@
 - **手动触发**: 前往 Actions → Update Skill Catalog → Run workflow
 - **自动触发**（可选）: skill 仓库 release 时可配置 webhook 触发更新
 
-> 要求仓库设置 **SKILL_CATALOG_PAT** secret
+> 要求仓库设置 **SKILL_CATALOG_PAT** secret（GitHub Personal Access Token，scope: `repo`）。
 
 ---
 
