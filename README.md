@@ -1,93 +1,44 @@
-# CGArtLab Skills
+# CGArtLab Skills Catalog
 
-为 CGArtLab 生态系统开发的 AI 代理技能集合。
+> 个人 AI Agent Skills 索引目录。
+> 本仓库自动扫描 `cgartlab` 名下所有后缀为 `-skill` 的仓库，收集摘要、版本和链接。
 
 **授权**: [CC BY-NC-SA 4.0](LICENSE) · **来源**: [github.com/cgartlab/cgartlab-skills](https://github.com/cgartlab/cgartlab-skills)
 
 ---
 
-## 概述
+## 📦 Skills
 
-本仓库存储、管理和维护所有 CGArtLab 生态系统的 Agent Skills。这些技能编码了开发最佳实践、项目约定和工作流程，让 AI 编码代理（OpenCode、Claude Code、OpenClaw、Codex CLI、GitHub Copilot 等）能够高效地在 CGArtLab 项目中工作。
+| Skill | Version | Description | Updated |
+|-------|---------|-------------|---------|
+| _暂无 skill 条目_ | _—_ | _—_ | _—_ |
 
-### CGArtLab 生态系统
+<sup>最后更新: 2026-07-08 · 自动检测 `*-skill` 仓库</sup>
 
-```
-                    ┌──────────────────────────────────┐
-                    │      cgartlab-skills (本仓库)      │
-                    │  知识层 — AI 辅助开发的技能编码      │
-                    └──────────────────────────────────┘
-                                │
-         ┌──────────────────────┼──────────────────────┐
-         │                      │                      │
-    ┌────▼──────────┐    ┌─────▼──────┐    ┌──────────▼──────┐
-    │ 品牌 & 内容    │    │  设计系统   │    │  基础设施 & 工具  │
-    │ cgartlab      │    │  EDIC      │    │ app-config       │
-    │ .github.io    │    │  Design    │    │ SwiftInstall     │
-    │ animpoly-com  │    │  System    │    │ goto-github      │
-    │ guoxue        │    │            │    │ cgartlab (RSS)   │
-    └───────────────┘    └────────────┘    └─────────────────┘
-```
+---
 
-## 安装
+## ➕ 添加新 Skill
 
-### 方式一：符号链接（推荐，修改即时生效）
+只需在你的 GitHub 账号下创建一个以 `-skill` 结尾的公开或私有仓库，本目录会在下次自动扫描时收录。
 
-```bash
-git clone https://github.com/cgartlab/cgartlab-skills.git
-cd cgartlab-skills
-make dev-link
-```
+建议每个 skill 仓库包含：
 
-所有技能立即可被 `~/.claude/skills/` 目录下的任何 Agent 发现使用。
+| 文件 | 说明 |
+|------|------|
+| `SKILL.md` | 遵循 [Agent Skills 标准](https://agentskills.io) 的 skill 定义 |
+| `README.md` | 项目的简明介绍 |
+| License | 推荐 CC BY-NC-SA 4.0（与母仓库一致） |
 
-### 方式二：复制安装
+## 🔄 更新方式
 
-```bash
-make install
-```
+本仓库通过 GitHub Actions 自动更新：
 
-### 方式三：curl 一键安装
+- **定时扫描**: 每周一次
+- **手动触发**: 前往 Actions → Update Skill Catalog → Run workflow
+- **自动触发**（可选）: skill 仓库 release 时可配置 webhook 触发更新
 
-```bash
-curl -fsSL https://raw.githubusercontent.com/cgartlab/cgartlab-skills/main/scripts/install.sh | bash
-```
+> 要求仓库设置 **SKILL_CATALOG_PAT** secret
 
-### 验证安装
-
-安装后重启你的 AI 代理，然后询问"列出所有可用的技能"来验证。
-
-## 仓库结构
-
-```
-cgartlab-skills/
-├── skills/             # 技能目录（扁平结构）
-│   └── <name>/         # skills/<name>/SKILL.md
-│       ├── SKILL.md    # 必需：元数据 + 指令
-│       ├── references/ # 可选：深度技术参考
-│       └── assets/     # 可选：资源文件
-├── templates/          # 技能模板
-├── scripts/            # 工具脚本
-├── AGENTS.md           # AI 代理开发规范
-├── SKILLS_GUIDE.md     # Skill 编写深度指南
-├── CONTRIBUTING.md     # 贡献指南
-├── Makefile            # 开发命令
-└── LICENSE             # CC BY-NC-SA 4.0
-```
-
-## 开发
-
-```bash
-make new name=<skill-name>  # 创建新技能
-make validate               # 验证所有技能
-make dev-link               # 符号链接到全局
-make info                   # 技能统计
-```
-
-详细指南请参见 [SKILLS_GUIDE.md](SKILLS_GUIDE.md) 和 [CONTRIBUTING.md](CONTRIBUTING.md)。
-
-## 关于
+---
 
 (C) 2026 CGArtLab · CC BY-NC-SA 4.0
-
-本仓库遵循 [Agent Skills 开放标准](https://agentskills.io)，所有技能文件与 OpenCode、Claude Code、OpenClaw、Codex CLI、Gemini CLI、GitHub Copilot 等 AI 代理完全兼容。
