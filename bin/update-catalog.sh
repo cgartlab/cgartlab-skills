@@ -16,9 +16,7 @@ DATA_FILE="skills.json"
 echo "[*] Scanning $OWNER for repos ending with -skill ..."
 
 # Fetch all repos for the owner, filter by -skill suffix, exclude this repo
-REPOS=$(gh api "/users/$OWNER/repos?per_page=100&type=owner" \
-  --jq '[.[] | select(.name | endswith("-skill") and (.full_name != $this)) | {name, full_name, description, updated_at, html_url}]' \
-  --arg this "$THIS_REPO")
+REPOS=$(gh api "search/repositories?q=user:$OWNER&per_page=100" --jq '.' | jq --arg this "$THIS_REPO" '[.items[] | select(.name | endswith("-skill") and (.full_name != $this)) | {name, full_name, description, updated_at, html_url}]')
 
 TOTAL=$(echo "$REPOS" | jq 'length')
 echo "[*] Found $TOTAL skill repo(s)"
