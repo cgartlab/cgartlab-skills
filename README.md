@@ -13,7 +13,7 @@
 |-------|---------|-------------|---------|
 | [blacklight-weekly-skill](https://github.com/cgartlab/blacklight-weekly-skill) | v0.1.1 | An Agent Skill that automates the first-draft production of Blacklight Weekly. | 2026-07-08 |
 
-<sup>最后更新: 2026-07-12 · 自动检测 `*-skill` 仓库</sup>
+<sup>最后更新: 2026-07-19 · 自动检测 `*-skill` 仓库</sup>
 
 ---
 
