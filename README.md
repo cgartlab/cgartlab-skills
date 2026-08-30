@@ -14,7 +14,7 @@
 | [blacklight-weekly-skill](https://github.com/cgartlab/blacklight-weekly-skill) | v0.1.1 | An Agent Skill that automates the first-draft production of Blacklight Weekly. | 2026-07-08 |
 | [miniflux-mcp-skill](https://github.com/cgartlab/miniflux-mcp-skill) | v0.1.0 | Miniflux MCP server integration — browse feeds, search articles, and manage RSS reading from AI conversations. | 2026-07-31 |
 
-<sup>最后更新: 2026-08-23 · 自动检测 `*-skill` 仓库</sup>
+<sup>最后更新: 2026-08-30 · 自动检测 `*-skill` 仓库</sup>
 
 ---
 
