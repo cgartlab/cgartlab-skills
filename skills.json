@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-08-30T11:11:51Z",
+  "updatedAt": "2026-09-05T22:04:42Z",
   "skills": [
     {
       "description": "An Agent Skill that automates the first-draft production of Blacklight Weekly.",
@@ -10,11 +10,11 @@
       "version": "v0.1.1"
     },
     {
-      "description": "Miniflux MCP server integration — browse feeds, search articles, and manage RSS reading from AI conversations.",
-      "full_name": "cgartlab/miniflux-mcp-skill",
-      "html_url": "https://github.com/cgartlab/miniflux-mcp-skill",
-      "name": "miniflux-mcp-skill",
-      "updated_at": "2026-07-31T18:17:22Z",
+      "description": "news-report — a modular news-gathering Agent Skill: browse feeds and search articles across pluggable information sources (Miniflux RSS via MCP included).",
+      "full_name": "cgartlab/news-report",
+      "html_url": "https://github.com/cgartlab/news-report",
+      "name": "news-report",
+      "updated_at": "2026-09-05T22:03:26Z",
       "version": "v0.1.0"
     }
   ]

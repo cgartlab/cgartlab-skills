@@ -41,7 +41,9 @@ cgartlab-skills/
 
 ```
 扫描 cgartlab 名下所有仓库
-  → 筛选名称以 -skill 结尾
+  → 筛选名称以 -skill 结尾，或命中显式例外 news-report
+     （例外理由：原 miniflux-mcp-skill 已更名 cgartlab/news-report，
+      更名后不再以 -skill 结尾，但仍属官方 skill 仓库，需继续收录）
   → 排除 cgartlab-skills 自身
   → 对每个仓库获取 description + latest release version
   → 写入 skills.json + 渲染 README.md
