@@ -11,7 +11,7 @@
 
 | Skill | Version | Description | Updated |
 |-------|---------|-------------|---------|
-| [blacklight-weekly-skill](https://github.com/cgartlab/blacklight-weekly-skill) | v0.1.1 | An Agent Skill that automates the first-draft production of Blacklight Weekly. | 2026-07-08 |
+| [blacklight-weekly](https://github.com/cgartlab/blacklight-weekly) | v0.1.1 | An Agent Skill that automates the first-draft production of Blacklight Weekly. | 2026-07-08 |
 | [news-report](https://github.com/cgartlab/news-report) | v0.2.0 | news-report — a modular news-gathering Agent Skill: browse feeds and search articles across pluggable information sources (Miniflux RSS via MCP included). | 2026-09-05 |
 
 <sup>最后更新: 2026-09-05 · 自动检测以 `-skill` 结尾的仓库及显式收录的 `news-report`</sup>

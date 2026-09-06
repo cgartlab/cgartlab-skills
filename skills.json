@@ -3,9 +3,9 @@
   "skills": [
     {
       "description": "An Agent Skill that automates the first-draft production of Blacklight Weekly.",
-      "full_name": "cgartlab/blacklight-weekly-skill",
-      "html_url": "https://github.com/cgartlab/blacklight-weekly-skill",
-      "name": "blacklight-weekly-skill",
+      "full_name": "cgartlab/blacklight-weekly",
+      "html_url": "https://github.com/cgartlab/blacklight-weekly",
+      "name": "blacklight-weekly",
       "updated_at": "2026-07-08T14:07:17Z",
       "version": "v0.1.1"
     },
