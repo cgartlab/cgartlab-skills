@@ -28,11 +28,28 @@ TOTAL=$(echo "$REPOS" | jq 'length // 0')
 echo "[*] Found $TOTAL skill repo(s)"
 
 # Enrich each repo with latest release version
-SKILLS=$(echo "$REPOS" | jq -c '.[] // empty' | while read -r repo; do
+TMP_DIR=$(mktemp -d)
+trap 'rm -rf "$TMP_DIR"' EXIT
+SKILLS_FILE="$TMP_DIR/skills.jsonl"
+API_ERR_FILE="$TMP_DIR/releases.err"
+: > "$SKILLS_FILE"
+: > "$API_ERR_FILE"
+
+while IFS= read -r repo; do
   FULL_NAME=$(echo "$repo" | jq -r '.full_name')
-  VERSION=$(gh api "/repos/$FULL_NAME/releases/latest" --jq '.tag_name // empty' || echo "")
-  echo "$repo" | jq --arg v "$VERSION" '. + {version: $v}'
-done | jq -s 'if . == null then [] else . end')
+
+  VERSION=$(gh api "/repos/$FULL_NAME/releases/latest" --jq '.tag_name // empty' 2> "$API_ERR_FILE")
+  GH_EXIT=$?
+  if [[ $GH_EXIT -ne 0 ]]; then
+    echo "[!] Could not fetch latest release for $FULL_NAME: $(cat "$API_ERR_FILE")" >&2
+    VERSION=""
+  fi
+
+  jq -n --argjson repo "$repo" --arg v "$VERSION" '$repo + {version: $v}' >> "$SKILLS_FILE"
+done < <(echo "$REPOS" | jq -c '.[] // empty')
+
+SKILLS=$(jq -s 'if . == null then [] else . end' "$SKILLS_FILE")
+
 
 # Write skills.json
 NOW=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
