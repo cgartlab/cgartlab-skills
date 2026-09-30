@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 # update-catalog.sh — Scan cgartlab skill repos and regenerate README.md
 #
-# Detection rule: repos whose name ends with "-skill", plus an explicit
-# exception for cgartlab/news-report (renamed from cgartlab/miniflux-mcp-skill).
-# The GitHub rename dropped the "-skill" suffix, but news-report is still an
-# official skill repo and must keep being catalogued.
+# Detection rule: repos whose name ends with "-skill", plus explicit
+# exceptions for cgartlab/news-report (renamed from cgartlab/miniflux-mcp-skill)
+# and cgartlab/person-profile (a skill repo that predates the "-skill" naming
+# convention). Neither ends with "-skill" but both are official skill repos and
+# must keep being catalogued.
 #
 # Requires: gh, jq
 # Env:      GH_TOKEN (GitHub PAT with repo scope)
@@ -18,11 +19,12 @@ OWNER="${GH_OWNER:-cgartlab}"
 THIS_REPO="${GITHUB_REPOSITORY:-cgartlab/cgartlab-skills}"
 DATA_FILE="skills.json"
 
-echo "[*] Scanning $OWNER for repos ending with -skill (plus explicit exception: news-report) ..."
+echo "[*] Scanning $OWNER for repos ending with -skill (plus explicit exceptions: news-report, person-profile) ..."
 
 # Fetch all repos for the owner, filter by "-skill" suffix or the explicit
-# exception "news-report" (formerly miniflux-mcp-skill), exclude this repo
-REPOS=$(gh api "search/repositories?q=user:$OWNER&per_page=100" --paginate --jq '[.items[] | select((.name | endswith("-skill")) or (.name == "news-report")) | select(.full_name != "cgartlab/cgartlab-skills") | {name, full_name, description, updated_at, html_url}]' | jq -s 'add // []')
+# exceptions "news-report" (formerly miniflux-mcp-skill) and "person-profile"
+# (predates the -skill naming convention), exclude this repo
+REPOS=$(gh api "search/repositories?q=user:$OWNER&per_page=100" --paginate --jq '[.items[] | select((.name | endswith("-skill")) or (.name == "news-report") or (.name == "person-profile")) | select(.full_name != "cgartlab/cgartlab-skills") | {name, full_name, description, updated_at, html_url}]' | jq -s 'add // []')
 
 TOTAL=$(echo "$REPOS" | jq 'length // 0')
 echo "[*] Found $TOTAL skill repo(s)"
@@ -78,7 +80,7 @@ cat > README.md << EOF
 # CGArtLab Skills Catalog
 
 > 个人 AI Agent Skills 索引目录。
-> 本仓库自动扫描 \`cgartlab\` 名下以 \`-skill\` 结尾的仓库，并显式收录 \`cgartlab/news-report\`（由原 miniflux-mcp-skill 更名而来，收录例外），收集摘要、版本和链接。
+> 本仓库自动扫描 \`cgartlab\` 名下以 \`-skill\` 结尾的仓库，并显式收录 \`cgartlab/news-report\`（由原 miniflux-mcp-skill 更名而来）与 \`cgartlab/person-profile\`（早于 -skill 命名约定的 skill 仓），收集摘要、版本和链接。
 
 **授权**: [CC BY-NC-SA 4.0](LICENSE) · **来源**: [github.com/cgartlab/cgartlab-skills](https://github.com/cgartlab/cgartlab-skills)
 
@@ -90,7 +92,7 @@ cat > README.md << EOF
 |-------|---------|-------------|---------|
 $TABLE_ROWS
 
-<sup>最后更新: ${UPDATED_AT} · 自动检测以 \`-skill\` 结尾的仓库及显式收录的 \`news-report\`</sup>
+<sup>最后更新: ${UPDATED_AT} · 自动检测以 \`-skill\` 结尾的仓库及显式收录的 \`news-report\`、\`person-profile\`</sup>
 
 ---
 

@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-09-27T11:21:12Z",
+  "updatedAt": "2026-09-30T11:47:15Z",
   "skills": [
     {
       "description": "news-report — a modular news-gathering Agent Skill: browse feeds and search articles across pluggable information sources (Miniflux RSS via MCP included).",
@@ -8,6 +8,14 @@
       "name": "news-report",
       "updated_at": "2026-09-19T17:31:01Z",
       "version": "v0.3.0"
+    },
+    {
+      "description": "人物档案方法论独立 skill 项目（Skill for Person Profile Creation）",
+      "full_name": "cgartlab/person-profile",
+      "html_url": "https://github.com/cgartlab/person-profile",
+      "name": "person-profile",
+      "updated_at": "2026-09-30T04:56:29Z",
+      "version": ""
     }
   ]
 }
