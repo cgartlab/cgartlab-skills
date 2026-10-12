@@ -54,6 +54,7 @@ while IFS= read -r repo; do
   # and fall through to the SKILL.md fallback instead of failing.
   VERSION=""
   VERSION_SRC=""
+  HAS_MD=""
 
   RELEASE_JSON=$(gh api "/repos/$FULL_NAME/releases/latest" 2> "$API_ERR_FILE" || true)
   if [[ -n "$RELEASE_JSON" ]]; then
@@ -64,10 +65,18 @@ while IFS= read -r repo; do
     fi
   fi
 
+  # SKILL.md presence check — runs for EVERY repo, regardless of whether a
+  # release exists. A repo with releases can still lack SKILL.md (dead link
+  # in the catalog, issue #4). Result drives the ⚠️ marker in README.
+  SKILL_MD_RESULT=$(gh api "/repos/$FULL_NAME/contents/SKILL.md" --jq '.content' 2> /dev/null || true)
+  if [[ -n "$SKILL_MD_RESULT" ]]; then
+    HAS_MD="true"
+  fi
+
   if [[ -z "$VERSION" ]]; then
     # SKILL.md fetch is best-effort: a -skill repo without SKILL.md is a data
     # gap (dead link candidate), not a reason to abort the whole scan.
-    SKILL_MD=$(gh api "/repos/$FULL_NAME/contents/SKILL.md" --jq '.content' 2> /dev/null || true)
+    SKILL_MD="$SKILL_MD_RESULT"
     if [[ -n "$SKILL_MD" ]]; then
       # || true: with set -o pipefail, a malformed base64 body (API glitch)
       # would otherwise kill the whole scan; empty output is handled below.
@@ -91,8 +100,8 @@ while IFS= read -r repo; do
     echo "[i] $FULL_NAME: no release found (version source: ${VERSION_SRC:-none})" >&2
   fi
 
-  jq -n --argjson repo "$repo" --arg v "$VERSION" --arg src "$VERSION_SRC" \
-    '$repo + {version: $v, version_source: $src}' >> "$SKILLS_FILE"
+  jq -n --argjson repo "$repo" --arg v "$VERSION" --arg src "$VERSION_SRC" --arg has_md "$HAS_MD" \
+    '$repo + {version: $v, version_source: $src, has_skill_md: $has_md}' >> "$SKILLS_FILE"
 done < <(echo "$REPOS" | jq -c '.[] // empty')
 
 SKILLS=$(jq -s 'if . == null then [] else . end' "$SKILLS_FILE")
@@ -111,8 +120,9 @@ TABLE_ROWS=$(echo "$SKILLS" | jq -r '
     "| _暂无 skill 条目_ | _—_ | _—_ | _—_ |"
   else
     sort_by(.name) | map(
-      "| [\(.name)](\(.html_url)) "
-      + "| \(if .version != "" then .version else "—" end) "
+      "| [\(.name)](\(.html_url))" +
+      (if .has_skill_md == "true" then "" else " ⚠️" end) +
+      " | \(if .version != "" then .version else "—" end) "
       + "| \(.description // "—" | gsub("\\s+$"; "") | gsub("\\n"; " ")) "
       + "| \(.updated_at[:10]) |"
     ) | .[]
