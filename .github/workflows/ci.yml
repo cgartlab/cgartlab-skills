@@ -1,0 +1,39 @@
+name: CI
+
+# Quality gates for PRs and pushes to main: run the catalog test suite and
+# shellcheck. Keeps the weekly auto-update script from regressing silently
+# (the PR #22 incident: a 404 crash lived for two weeks because nothing ran
+# the script against edge cases).
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'bin/**'
+      - 'tests/**'
+      - '.github/workflows/ci.yml'
+  pull_request:
+    paths:
+      - 'bin/**'
+      - 'tests/**'
+      - '.github/workflows/ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install jq (script dependency)
+        run: |
+          # ubuntu-latest ships jq, but pin nothing: use the preinstalled one.
+          jq --version
+
+      - name: Run test suite
+        run: bash tests/run_tests.sh
+
+      - name: Shellcheck (error+warning gate)
+        run: |
+          shellcheck -S warning bin/update-catalog.sh tests/run_tests.sh tests/fixtures/gh
