@@ -100,6 +100,11 @@ assert_api_error() {
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
+# Ensure the gh mock is executable: git checkouts on Windows may drop the
+# exec bit, and then PATH lookup on Linux skips it entirely (the real, token-
+# less gh gets picked instead — CI failure mode seen 2026-10-12).
+chmod +x "$HERE/fixtures/gh" 2>/dev/null || true
+
 workdir="$(mktemp -d)"
 trap 'rm -rf "$workdir"' EXIT
 
