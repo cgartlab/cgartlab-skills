@@ -12,9 +12,9 @@
 | Skill | Version | Description | Updated |
 |-------|---------|-------------|---------|
 | [news-report](https://github.com/cgartlab/news-report) | v0.3.0 | news-report — a modular news-gathering Agent Skill: browse feeds and search articles across pluggable information sources (Miniflux RSS via MCP included). | 2026-09-19 |
-| [person-profile](https://github.com/cgartlab/person-profile) | — | 人物档案方法论独立 skill 项目（Skill for Person Profile Creation） | 2026-09-30 |
+| [person-profile](https://github.com/cgartlab/person-profile) | 0.1.1 | 人物档案方法论独立 skill 项目（Skill for Person Profile Creation） | 2026-10-05 |
 
-<sup>最后更新: 2026-09-30 · 自动检测以 `-skill` 结尾的仓库及显式收录的 `news-report`、`person-profile`</sup>
+<sup>最后更新: 2026-10-12 · 自动检测以 `-skill` 结尾的仓库及显式收录的 `news-report`、`person-profile`</sup>
 
 ---
 
