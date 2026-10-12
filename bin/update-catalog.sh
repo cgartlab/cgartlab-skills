@@ -16,7 +16,6 @@
 set -euo pipefail
 
 OWNER="${GH_OWNER:-cgartlab}"
-THIS_REPO="${GITHUB_REPOSITORY:-cgartlab/cgartlab-skills}"
 DATA_FILE="skills.json"
 
 echo "[*] Scanning $OWNER for repos ending with -skill (plus explicit exceptions: news-report, person-profile) ..."
@@ -66,15 +65,25 @@ while IFS= read -r repo; do
   fi
 
   if [[ -z "$VERSION" ]]; then
+    # SKILL.md fetch is best-effort: a -skill repo without SKILL.md is a data
+    # gap (dead link candidate), not a reason to abort the whole scan.
     SKILL_MD=$(gh api "/repos/$FULL_NAME/contents/SKILL.md" --jq '.content' 2> /dev/null || true)
     if [[ -n "$SKILL_MD" ]]; then
+      # || true: with set -o pipefail, a malformed base64 body (API glitch)
+      # would otherwise kill the whole scan; empty output is handled below.
+      # Strip surrounding quotes with tr (shellcheck-parseable, unlike a
+      # quote-juggling sed replacement).
       FM_VERSION=$(echo "$SKILL_MD" | base64 -d 2> /dev/null \
-        | sed -n 's/^[[:space:]]*version:[[:space:]]*["'"'"']\{0,1\}\([^"'"'"']*\)["'"'"']\{0,1\}[[:space:]]*$/\1/p' \
-        | head -1)
+        | sed -n 's/^[[:space:]]*version:[[:space:]]*//p' \
+        | head -1 \
+        | tr -d "\"'" || true)
       if [[ -n "$FM_VERSION" ]]; then
         VERSION="$FM_VERSION"
         VERSION_SRC="skill-md"
       fi
+    fi
+    if [[ -z "$VERSION" ]]; then
+      echo "[!] $FULL_NAME: no version from release or SKILL.md (missing SKILL.md? dead-link candidate)" >&2
     fi
   fi
 
