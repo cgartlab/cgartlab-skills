@@ -1,0 +1,4 @@
+# Keep shell scripts LF everywhere: CRLF breaks bash on Linux CI and makes
+# shellcheck report SC1017 (literal carriage return) on Windows checkouts.
+*.sh text eol=lf
+tests/fixtures/gh text eol=lf
