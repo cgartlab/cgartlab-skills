@@ -82,11 +82,18 @@ assert_no_skill_md() {
     else
       fail "$name: expected empty version/version_source for gamma-skill"
     fi
+    if grep -q '"has_skill_md": ""' "$sandbox/skills.json"; then
+      pass "$name: has_skill_md empty for repo without SKILL.md"
+    else
+      fail "$name: skills.json should record empty has_skill_md"
+    fi
   else
     fail "$name: skills.json missing"
   fi
   [[ -f "$sandbox/README.md" ]] && grep -q '| — |' "$sandbox/README.md" \
     && pass "$name: README shows — for missing version" || fail "$name: README should show — placeholder"
+  [[ -f "$sandbox/README.md" ]] && grep -q 'gamma-skill.*⚠️' "$sandbox/README.md" \
+    && pass "$name: README marks missing SKILL.md with warning" || fail "$name: README should flag dead-link candidate with warning"
 }
 
 assert_api_error() {
