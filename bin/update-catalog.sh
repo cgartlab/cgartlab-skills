@@ -30,7 +30,14 @@ TOTAL=$(echo "$REPOS" | jq 'length // 0')
 echo "[*] Found $TOTAL skill repo(s)"
 
 # Enrich each repo with latest release version
-TMP_DIR=$(mktemp -d)
+# NOTE: the while loop below must NOT run in a $( ) subshell — mktemp + trap
+# cleanup there would delete the temp dir (and its files) before the main
+# shell reads them. Process substitution (< <(...)) keeps the loop in this shell.
+# TMP_DIR uses a RELATIVE path: on Windows/MSYS a POSIX /tmp path is invisible
+# to native jq.exe (it resolves it as C:\tmp), which breaks the pipeline.
+# A CWD-relative dir works identically on Linux CI and Windows dev boxes and
+# is removed by the EXIT trap either way.
+TMP_DIR=$(mktemp -d .catalog-tmp.XXXXXX)
 trap 'rm -rf "$TMP_DIR"' EXIT
 SKILLS_FILE="$TMP_DIR/skills.jsonl"
 API_ERR_FILE="$TMP_DIR/releases.err"
@@ -40,14 +47,43 @@ API_ERR_FILE="$TMP_DIR/releases.err"
 while IFS= read -r repo; do
   FULL_NAME=$(echo "$repo" | jq -r '.full_name')
 
-  VERSION=$(gh api "/repos/$FULL_NAME/releases/latest" --jq '.tag_name // empty' 2> "$API_ERR_FILE")
-  GH_EXIT=$?
-  if [[ $GH_EXIT -ne 0 ]]; then
-    echo "[!] Could not fetch latest release for $FULL_NAME: $(cat "$API_ERR_FILE")" >&2
-    VERSION=""
+  # Version strategy (fallback chain):
+  #   1. latest GitHub release tag
+  #   2. SKILL.md frontmatter metadata.version (Agent Skills standard)
+  # A repo without any release MUST NOT abort the whole scan: the releases
+  # endpoint returns 404 for such repos, so treat it as "no release found"
+  # and fall through to the SKILL.md fallback instead of failing.
+  VERSION=""
+  VERSION_SRC=""
+
+  RELEASE_JSON=$(gh api "/repos/$FULL_NAME/releases/latest" 2> "$API_ERR_FILE" || true)
+  if [[ -n "$RELEASE_JSON" ]]; then
+    TAG=$(echo "$RELEASE_JSON" | jq -r '.tag_name // empty')
+    if [[ -n "$TAG" ]]; then
+      VERSION="$TAG"
+      VERSION_SRC="release"
+    fi
   fi
 
-  jq -n --argjson repo "$repo" --arg v "$VERSION" '$repo + {version: $v}' >> "$SKILLS_FILE"
+  if [[ -z "$VERSION" ]]; then
+    SKILL_MD=$(gh api "/repos/$FULL_NAME/contents/SKILL.md" --jq '.content' 2> /dev/null || true)
+    if [[ -n "$SKILL_MD" ]]; then
+      FM_VERSION=$(echo "$SKILL_MD" | base64 -d 2> /dev/null \
+        | sed -n 's/^[[:space:]]*version:[[:space:]]*["'"'"']\{0,1\}\([^"'"'"']*\)["'"'"']\{0,1\}[[:space:]]*$/\1/p' \
+        | head -1)
+      if [[ -n "$FM_VERSION" ]]; then
+        VERSION="$FM_VERSION"
+        VERSION_SRC="skill-md"
+      fi
+    fi
+  fi
+
+  if [[ $VERSION_SRC != "release" ]]; then
+    echo "[i] $FULL_NAME: no release found (version source: ${VERSION_SRC:-none})" >&2
+  fi
+
+  jq -n --argjson repo "$repo" --arg v "$VERSION" --arg src "$VERSION_SRC" \
+    '$repo + {version: $v, version_source: $src}' >> "$SKILLS_FILE"
 done < <(echo "$REPOS" | jq -c '.[] // empty')
 
 SKILLS=$(jq -s 'if . == null then [] else . end' "$SKILLS_FILE")

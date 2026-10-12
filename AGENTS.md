@@ -45,7 +45,8 @@ cgartlab-skills/
      （news-report：原 miniflux-mcp-skill 更名后不再以 -skill 结尾；
       person-profile：早于 -skill 命名约定的 skill 仓。两者仍属官方 skill 仓库，需继续收录）
   → 排除 cgartlab-skills 自身
-  → 对每个仓库获取 description + latest release version
+  → 对每个仓库获取 description + version（优先 latest release；
+     无 release 时回退读 SKILL.md frontmatter 的 metadata.version）
   → 写入 skills.json + 渲染 README.md
 ```
 
@@ -55,7 +56,7 @@ cgartlab-skills/
 
 1. 在 cgartlab 账号下创建仓库，名称以 `-skill` 结尾
 2. 建议包含 `SKILL.md`（遵循 Agent Skills 标准）
-3. 发布 Release 以生成版本号
+3. 发布 Release 生成版本号（推荐）；未发布时索引会回退读 SKILL.md 头部的 `metadata.version`
 4. 本目录在下一次自动扫描时收录
 
 ---
