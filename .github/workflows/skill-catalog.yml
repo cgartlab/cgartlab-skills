@@ -9,6 +9,13 @@ on:
   repository_dispatch:
     types: [update-catalog]
 
+# Only one catalog update may run at a time. Parallel runs would both edit
+# README.md/skills.json and race on the final git push, corrupting history
+# (issue #14). Queued runs wait; in-progress blocks new ones.
+concurrency:
+  group: skill-catalog
+  cancel-in-progress: false
+
 permissions:
   contents: write
 
@@ -16,7 +23,7 @@ jobs:
   update:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Update catalog
         run: bash bin/update-catalog.sh
