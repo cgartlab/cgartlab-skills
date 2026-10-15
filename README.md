@@ -1,7 +1,7 @@
 # CGArtLab Skills Catalog
 
 > 个人 AI Agent Skills 索引目录。
-> 本仓库自动扫描 `cgartlab` 名下以 `-skill` 结尾的仓库，并显式收录 `cgartlab/news-report`（由原 miniflux-mcp-skill 更名而来）与 `cgartlab/person-profile`（早于 -skill 命名约定的 skill 仓），收集摘要、版本和链接。
+> 本仓库自动扫描 `cgartlab` 名下以 `-skill` 结尾的仓库，并显式收录 `cgartlab/news-report`（由原 miniflux-mcp-skill 更名而来）、`cgartlab/blacklight-weekly`（由原 blacklight-weekly-skill 更名而来）与 `cgartlab/person-profile`（早于 -skill 命名约定的 skill 仓），收集摘要、版本和链接。
 
 **授权**: [CC BY-NC-SA 4.0](LICENSE) · **来源**: [github.com/cgartlab/cgartlab-skills](https://github.com/cgartlab/cgartlab-skills)
 
@@ -11,10 +11,11 @@
 
 | Skill | Version | Description | Updated |
 |-------|---------|-------------|---------|
-| [news-report](https://github.com/cgartlab/news-report) | v0.3.0 | news-report — a modular news-gathering Agent Skill: browse feeds and search articles across pluggable information sources (Miniflux RSS via MCP included). | 2026-09-19 |
+| [blacklight-weekly](https://github.com/cgartlab/blacklight-weekly) | v0.1.1 | An Agent Skill that automates the first-draft production of Blacklight Weekly. | 2026-09-06 |
+| [news-report](https://github.com/cgartlab/news-report) | v0.3.0 | news-report — a modular news-gathering Agent Skill: browse feeds and search articles across pluggable information sources (Miniflux RSS via MCP included). | 2026-10-15 |
 | [person-profile](https://github.com/cgartlab/person-profile) | 0.1.1 | 人物档案方法论独立 skill 项目（Skill for Person Profile Creation） | 2026-10-05 |
 
-<sup>最后更新: 2026-10-12 · 自动检测以 `-skill` 结尾的仓库及显式收录的 `news-report`、`person-profile`</sup>
+<sup>最后更新: 2026-10-15 · 自动检测以 `-skill` 结尾的仓库及显式收录的 `news-report`、`blacklight-weekly`、`person-profile`</sup>
 
 ---
 

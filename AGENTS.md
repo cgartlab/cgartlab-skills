@@ -41,9 +41,10 @@ cgartlab-skills/
 
 ```
 扫描 cgartlab 名下所有仓库
-  → 筛选名称以 -skill 结尾，或命中显式例外（news-report、person-profile）
+  → 筛选名称以 -skill 结尾，或命中显式例外（news-report、blacklight-weekly、person-profile）
      （news-report：原 miniflux-mcp-skill 更名后不再以 -skill 结尾；
-      person-profile：早于 -skill 命名约定的 skill 仓。两者仍属官方 skill 仓库，需继续收录）
+      blacklight-weekly：原 blacklight-weekly-skill 更名后不再以 -skill 结尾；
+      person-profile：早于 -skill 命名约定的 skill 仓。三者仍属官方 skill 仓库，需继续收录）
   → 排除 cgartlab-skills 自身
   → 对每个仓库获取 description + version（优先 latest release；
      无 release 时回退读 SKILL.md frontmatter 的 metadata.version）
