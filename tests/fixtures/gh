@@ -2,16 +2,17 @@
 # mock gh — test fixture for update-catalog.sh
 #
 # Behavior is driven by MOCK_MODE env var:
-#   release_ok         : search returns 2 repos; both have releases
-#   fallback_skill_md  : search returns 2 repos; one 404s on releases,
-#                        has SKILL.md with metadata.version
-#   no_skill_md        : search returns 1 repo; no release, no SKILL.md
-#   api_error          : search endpoint fails (non-zero exit + stderr)
+#   release_ok         : 2 repos, both have SKILL.md with valid frontmatter and a release
+#   missing_kind       : repo without metadata.kind in SKILL.md
+#   bad_kind           : repo with metadata.kind outside {skill,agent,mcp}
+#   no_release         : repo with valid frontmatter but NO release
+#   no_skill_md        : repo without SKILL.md at root
+#   api_error          : repo listing endpoint fails (non-zero exit + stderr)
 #
 # Recognized calls:
-#   gh api "search/repositories?q=..." [--paginate] [--jq ...]
+#   gh api "search/repositories?q=user:..." [--paginate] [--jq ...]
+#   gh api -H "Accept: application/vnd.github.raw" "/repos/<full>/contents/SKILL.md"
 #   gh api "/repos/<full>/releases/latest" [--jq ...]
-#   gh api "/repos/<full>/contents/SKILL.md" --jq '.content'
 set -uo pipefail
 
 args=("$@")
@@ -22,12 +23,38 @@ if [[ "$subcmd" != "api" ]]; then
   exit 1
 fi
 
-endpoint="${args[1]:-}"
+# Skip flags (and their values) to find the endpoint: -H/--header <val>,
+# --jq <expr>, --method/-X <val>, --paginate, --input <file>.
+endpoint=""
+skip_next=0
+for ((i = 1; i < ${#args[@]}; i++)); do
+  if [[ $skip_next -eq 1 ]]; then
+    skip_next=0
+    continue
+  fi
+  case "${args[$i]}" in
+    -H|--header|-X|--method|--input|-f|--field|-F|--raw-field|-q|--jq)
+      skip_next=1
+      ;;
+    -*)
+      # flag without value (e.g. --paginate)
+      ;;
+    *)
+      endpoint="${args[$i]}"
+      break
+      ;;
+  esac
+done
+
+if [[ -z "$endpoint" ]]; then
+  echo "mock gh: no endpoint found in args: $*" >&2
+  exit 1
+fi
 
 # --- search/repositories ---------------------------------------------------
 if [[ "$endpoint" == search/repositories* ]]; then
   if [[ "${MOCK_MODE:-}" == "api_error" ]]; then
-    echo "mock gh: simulated search failure" >&2
+    echo "mock gh: simulated repo listing failure" >&2
     exit 1
   fi
 
@@ -35,8 +62,14 @@ if [[ "$endpoint" == search/repositories* ]]; then
     release_ok)
       repos='[{"name":"alpha-skill","full_name":"cgartlab/alpha-skill","description":"Alpha test skill","updated_at":"2026-10-01T00:00:00Z","html_url":"https://github.com/cgartlab/alpha-skill"},{"name":"beta-skill","full_name":"cgartlab/beta-skill","description":"Beta test skill","updated_at":"2026-10-02T00:00:00Z","html_url":"https://github.com/cgartlab/beta-skill"}]'
       ;;
-    fallback_skill_md)
-      repos='[{"name":"alpha-skill","full_name":"cgartlab/alpha-skill","description":"Alpha test skill","updated_at":"2026-10-01T00:00:00Z","html_url":"https://github.com/cgartlab/alpha-skill"},{"name":"person-profile","full_name":"cgartlab/person-profile","description":"人物档案 skill","updated_at":"2026-10-05T00:00:00Z","html_url":"https://github.com/cgartlab/person-profile"}]'
+    missing_kind)
+      repos='[{"name":"alpha-skill","full_name":"cgartlab/alpha-skill","description":"Alpha test skill","updated_at":"2026-10-01T00:00:00Z","html_url":"https://github.com/cgartlab/alpha-skill"},{"name":"no-kind-skill","full_name":"cgartlab/no-kind-skill","description":"Frontmatter without kind","updated_at":"2026-10-01T00:00:00Z","html_url":"https://github.com/cgartlab/no-kind-skill"}]'
+      ;;
+    bad_kind)
+      repos='[{"name":"alpha-skill","full_name":"cgartlab/alpha-skill","description":"Alpha test skill","updated_at":"2026-10-01T00:00:00Z","html_url":"https://github.com/cgartlab/alpha-skill"},{"name":"wrong-kind-skill","full_name":"cgartlab/wrong-kind-skill","description":"Frontmatter with bad kind","updated_at":"2026-10-01T00:00:00Z","html_url":"https://github.com/cgartlab/wrong-kind-skill"}]'
+      ;;
+    no_release)
+      repos='[{"name":"alpha-skill","full_name":"cgartlab/alpha-skill","description":"Alpha test skill","updated_at":"2026-10-01T00:00:00Z","html_url":"https://github.com/cgartlab/alpha-skill"},{"name":"unreleased-skill","full_name":"cgartlab/unreleased-skill","description":"Valid skill but no release","updated_at":"2026-10-01T00:00:00Z","html_url":"https://github.com/cgartlab/unreleased-skill"}]'
       ;;
     no_skill_md)
       repos='[{"name":"gamma-skill","full_name":"cgartlab/gamma-skill","description":"Gamma test skill","updated_at":"2026-10-03T00:00:00Z","html_url":"https://github.com/cgartlab/gamma-skill"}]'
@@ -47,7 +80,7 @@ if [[ "$endpoint" == search/repositories* ]]; then
       ;;
   esac
 
-  # Real gh applies --jq '[.items[] | select(...) | {...}]' to the response,
+  # Real gh applies --jq '[.[] | select(...) | {...}]' to the response,
   # yielding an ARRAY of filtered repos. Emulate the post-filter shape.
   echo "$repos"
   exit 0
@@ -55,7 +88,7 @@ fi
 
 # --- /repos/<full>/releases/latest ------------------------------------------
 if [[ "$endpoint" == */releases/latest ]]; then
-  if [[ "$endpoint" == *"person-profile"* || "$endpoint" == *"gamma-skill"* ]]; then
+  if [[ "$endpoint" == *"unreleased-skill"* ]]; then
     # No release published: real API returns 404 + JSON error body
     echo '{"message":"Not Found","documentation_url":"https://docs.github.com/rest/releases/releases#get-the-latest-release","status":"404"}'
     exit 1
@@ -65,28 +98,61 @@ if [[ "$endpoint" == */releases/latest ]]; then
 fi
 
 # --- /repos/<full>/contents/SKILL.md ----------------------------------------
+# The script requests the raw media type (Accept: application/vnd.github.raw),
+# so the mock prints the SKILL.md content itself, not a base64 envelope.
 if [[ "$endpoint" == */contents/SKILL.md ]]; then
   if [[ "$endpoint" == *"gamma-skill"* ]]; then
     # Real gh with --jq prints errors to STDERR and nothing to stdout on 404
     echo '{"message":"Not Found","status":"404"}' >&2
     exit 1
   fi
-  # person-profile-style frontmatter with metadata.version
-  skill_md=$(cat <<'YAML'
+
+  # Select the SKILL.md variant by repo name.
+  case "${MOCK_MODE:-}:${endpoint}" in
+    *no-kind-skill*)
+      cat <<'YAML'
 ---
-name: person-profile
-description: test fixture skill
-metadata:
-  version: "0.1.1"
+name: no-kind-skill
+description: frontmatter without metadata.kind
 ---
-# Person Profile
+# No Kind
 YAML
-)
-  # base64 without line wrapping, as the contents API does
-  # Script calls: gh api <endpoint> --jq '.content' — so real gh returns the
-  # RAW base64 string (post --jq), not the {"content": ...} envelope.
-  b64=$(printf '%s' "$skill_md" | base64 -w 0 2>/dev/null || printf '%s' "$skill_md" | base64)
-  echo "$b64"
+      ;;
+    *wrong-kind-skill*)
+      cat <<'YAML'
+---
+name: wrong-kind-skill
+description: frontmatter with an out-of-range kind
+metadata:
+  kind: workflow
+---
+# Wrong Kind
+YAML
+      ;;
+    *unreleased-skill*)
+      cat <<'YAML'
+---
+name: unreleased-skill
+description: valid frontmatter but no release yet
+metadata:
+  kind: skill
+---
+# Unreleased
+YAML
+      ;;
+    *)
+      cat <<'YAML'
+---
+name: alpha-skill
+description: >-
+  A valid skill fixture with a block-scalar description.
+metadata:
+  kind: skill
+---
+# Alpha
+YAML
+      ;;
+  esac
   exit 0
 fi
 

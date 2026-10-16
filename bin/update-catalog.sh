@@ -1,12 +1,15 @@
 #!/usr/bin/env bash
-# update-catalog.sh — Scan cgartlab skill repos and regenerate README.md
+# update-catalog.sh — Scan cgartlab skill repos and regenerate skills.json + README.md
 #
-# Detection rule: repos whose name ends with "-skill", plus explicit
-# exceptions for cgartlab/news-report (renamed from cgartlab/miniflux-mcp-skill),
-# cgartlab/blacklight-weekly (renamed from cgartlab/blacklight-weekly-skill)
-# and cgartlab/person-profile (a skill repo that predates the "-skill" naming
-# convention). None ends with "-skill" but all are official skill repos and
-# must keep being catalogued.
+# Detection rule (D: frontmatter contract + release gate):
+#   1. Scan ALL repos owned by GH_OWNER (name is irrelevant).
+#   2. A repo is a catalogued skill ONLY IF its root SKILL.md frontmatter
+#      contains name, description and metadata.kind, AND metadata.kind is one
+#      of skill|agent|mcp.
+#   3. A repo MUST have a latest GitHub Release; the tag_name becomes the
+#      version. No release → not catalogued (hard gate, no fallback).
+#   4. Repos failing any rule are skipped silently in the index, but the skip
+#      reason is printed to stderr so misconfigured repos stay visible.
 #
 # Requires: gh, jq
 # Env:      GH_TOKEN (GitHub PAT with repo scope)
@@ -16,21 +19,33 @@
 
 set -euo pipefail
 
+# MSYS/Git-Bash on Windows rewrites a leading-slash endpoint argument into a
+# filesystem path ("/repos/..." -> "C:/Program Files/Git/repos/..."), which the
+# API then rejects. Disabling that conversion keeps POSIX-style endpoints intact.
+export MSYS_NO_PATHCONV=1
+export MSYS2_ARG_CONV_EXCL="*"
+
 OWNER="${GH_OWNER:-cgartlab}"
 DATA_FILE="skills.json"
 
-echo "[*] Scanning $OWNER for repos ending with -skill (plus explicit exceptions: news-report, blacklight-weekly, person-profile) ..."
+echo "[*] Scanning ALL repos of $OWNER (frontmatter contract + release gate) ..."
 
-# Fetch all repos for the owner, filter by "-skill" suffix or the explicit
-# exceptions "news-report" (formerly miniflux-mcp-skill), "blacklight-weekly"
-# (formerly blacklight-weekly-skill) and "person-profile" (predates the -skill
-# naming convention), exclude this repo
-REPOS=$(gh api "search/repositories?q=user:$OWNER&per_page=100" --paginate --jq '[.items[] | select((.name | endswith("-skill")) or (.name == "news-report") or (.name == "blacklight-weekly") or (.name == "person-profile")) | select(.full_name != "cgartlab/cgartlab-skills") | {name, full_name, description, updated_at, html_url}]' | jq -s 'add // []')
+# Fetch all repos for the owner, exclude this repo.
+# Enumerate ALL repos of the owner. search/repositories is used instead of
+# /users/<owner>/repos because the latter returns an INCOMPLETE list of private
+# repos (observed 2026-10: 25 of 47 returned, silently dropping blacklight-weekly
+# and news-report). search returns the full set for user:<owner> queries.
+# A freshly renamed repo may lag in the search index; that is a bounded delay
+# (minutes) and self-heals on the next run, which is acceptable versus silently
+# missing private repos forever.
+REPOS=$(gh api "search/repositories?q=user:$OWNER&per_page=100" --paginate \
+  --jq '[.items[] | select(.full_name != "cgartlab/cgartlab-skills")
+        | {name, full_name, description, updated_at, html_url}]' \
+  | jq -s 'add // []')
 
 TOTAL=$(echo "$REPOS" | jq 'length // 0')
-echo "[*] Found $TOTAL skill repo(s)"
+echo "[*] Found $TOTAL repo(s) to evaluate"
 
-# Enrich each repo with latest release version
 # NOTE: the while loop below must NOT run in a $( ) subshell — mktemp + trap
 # cleanup there would delete the temp dir (and its files) before the main
 # shell reads them. Process substitution (< <(...)) keeps the loop in this shell.
@@ -41,90 +56,148 @@ echo "[*] Found $TOTAL skill repo(s)"
 TMP_DIR=$(mktemp -d .catalog-tmp.XXXXXX)
 trap 'rm -rf "$TMP_DIR"' EXIT
 SKILLS_FILE="$TMP_DIR/skills.jsonl"
-API_ERR_FILE="$TMP_DIR/releases.err"
+SKIPPED_FILE="$TMP_DIR/skipped.log"
 : > "$SKILLS_FILE"
-: > "$API_ERR_FILE"
+: > "$SKIPPED_FILE"
+
+# Extract the YAML frontmatter block (first --- ... --- pair) from SKILL.md.
+# Prints the block WITHOUT the delimiters. Empty output when there is none.
+extract_frontmatter() {
+  awk 'BEGIN{infm=0} /^---[[:space:]]*$/{infm++; if(infm==1) next; if(infm==2) exit; next} infm==1{print}' "$1"
+}
+
+# Read a scalar value from the frontmatter by top-level or metadata.child key.
+# Args: <frontmatter file> <key path, e.g. "name" or "metadata.kind">
+# Handles both "key: value" and block scalars are NOT expanded (only the first
+# line of a block scalar is returned, which is enough for kind/name).
+fm_value() {
+  local fm="$1" keypath="$2"
+  awk -v want="$keypath" '
+    BEGIN { split(want, parts, "."); depth = 0 }
+    {
+      line = $0
+      # measure indent
+      match(line, /^ */)
+      ind = RLENGTH
+      sub(/^ */, "", line)
+      if (line ~ /^#/ || line == "") next
+      if (line ~ /^---[[:space:]]*$/) next
+      # split "key: rest"
+      ci = index(line, ":")
+      if (ci == 0) next
+      key = substr(line, 1, ci - 1)
+      val = substr(line, ci + 1)
+      sub(/^[[:space:]]+/, "", val)
+      sub(/[[:space:]]+$/, "", val)
+      gsub(/^["'\'']|["'\'']$/, "", val)
+      if (ind == 0) { cur = key }
+      # match the requested path
+      n = split(want, p, ".")
+      if (n == 1) {
+        if (ind == 0 && key == want && val != "") { print val; exit }
+      } else {
+        if (ind == 0) { cur = key; next }
+        if (cur == p[1] && key == p[2] && val != "") { print val; exit }
+      }
+    }
+  ' "$fm"
+}
+
+# Fetch SKILL.md into a file; return 0 on success, 1 on any failure.
+# Uses the raw media type so the API returns the decoded file directly —
+# no base64 round-trip (which is fragile on Windows/MSYS for large files).
+fetch_skill_md() {
+  local full="$1" out="$2"
+  if ! gh api -H "Accept: application/vnd.github.raw" \
+      "/repos/$full/contents/SKILL.md" > "$out" 2>/dev/null; then
+    return 1
+  fi
+  [[ -s "$out" ]] || return 1
+  return 0
+}
 
 while IFS= read -r repo; do
   FULL_NAME=$(echo "$repo" | jq -r '.full_name')
 
-  # Version strategy (fallback chain):
-  #   1. latest GitHub release tag
-  #   2. SKILL.md frontmatter metadata.version (Agent Skills standard)
-  # A repo without any release MUST NOT abort the whole scan: the releases
-  # endpoint returns 404 for such repos, so treat it as "no release found"
-  # and fall through to the SKILL.md fallback instead of failing.
+  # --- Gate 1: SKILL.md must exist at the repo root -------------------------
+  SKILL_MD_FILE="$TMP_DIR/skill.md"
+  if ! fetch_skill_md "$FULL_NAME" "$SKILL_MD_FILE"; then
+    echo "[-] $FULL_NAME: no SKILL.md at root, skipped" >> "$SKIPPED_FILE"
+    continue
+  fi
+
+  FM_FILE="$TMP_DIR/frontmatter.yml"
+  extract_frontmatter "$SKILL_MD_FILE" > "$FM_FILE"
+  if [[ ! -s "$FM_FILE" ]]; then
+    echo "[-] $FULL_NAME: SKILL.md has no frontmatter, skipped" >> "$SKIPPED_FILE"
+    continue
+  fi
+
+  # --- Gate 2: frontmatter contract (name + description + metadata.kind) ----
+  KIND=$(fm_value "$FM_FILE" "metadata.kind")
+  case "$KIND" in
+    skill|agent|mcp) ;;
+    "") echo "[-] $FULL_NAME: metadata.kind missing, skipped" >> "$SKIPPED_FILE"; continue ;;
+    *)  echo "[-] $FULL_NAME: metadata.kind '$KIND' not in {skill,agent,mcp}, skipped" >> "$SKIPPED_FILE"; continue ;;
+  esac
+
+  SKILL_NAME=$(fm_value "$FM_FILE" "name")
+  if [[ -z "$SKILL_NAME" ]]; then
+    echo "[-] $FULL_NAME: frontmatter 'name' missing, skipped" >> "$SKIPPED_FILE"
+    continue
+  fi
+
+  # description may be a plain scalar or a block scalar (>- / | / >); for the
+  # gate we only need "is a description field present at all".
+  if ! grep -qE '^[[:space:]]*description:' "$FM_FILE"; then
+    echo "[-] $FULL_NAME: frontmatter 'description' missing, skipped" >> "$SKIPPED_FILE"
+    continue
+  fi
+
+  # --- Gate 3: a release must exist (tag_name becomes the version) ----------
+  # The releases endpoint 404s for repos without one. Treat that as "no
+  # release" and skip, never as a fatal error.
   VERSION=""
-  VERSION_SRC=""
-  HAS_MD=""
-
-  RELEASE_JSON=$(gh api "/repos/$FULL_NAME/releases/latest" 2> "$API_ERR_FILE" || true)
+  RELEASE_JSON=$(gh api "/repos/$FULL_NAME/releases/latest" 2>/dev/null || true)
   if [[ -n "$RELEASE_JSON" ]]; then
-    TAG=$(echo "$RELEASE_JSON" | jq -r '.tag_name // empty')
-    if [[ -n "$TAG" ]]; then
-      VERSION="$TAG"
-      VERSION_SRC="release"
-    fi
+    VERSION=$(echo "$RELEASE_JSON" | jq -r '.tag_name // empty')
   fi
-
-  # SKILL.md presence check — runs for EVERY repo, regardless of whether a
-  # release exists. A repo with releases can still lack SKILL.md (dead link
-  # in the catalog, issue #4). Result drives the ⚠️ marker in README.
-  SKILL_MD_RESULT=$(gh api "/repos/$FULL_NAME/contents/SKILL.md" --jq '.content' 2> /dev/null || true)
-  if [[ -n "$SKILL_MD_RESULT" ]]; then
-    HAS_MD="true"
-  fi
-
   if [[ -z "$VERSION" ]]; then
-    # SKILL.md fetch is best-effort: a -skill repo without SKILL.md is a data
-    # gap (dead link candidate), not a reason to abort the whole scan.
-    SKILL_MD="$SKILL_MD_RESULT"
-    if [[ -n "$SKILL_MD" ]]; then
-      # || true: with set -o pipefail, a malformed base64 body (API glitch)
-      # would otherwise kill the whole scan; empty output is handled below.
-      # Strip surrounding quotes with tr (shellcheck-parseable, unlike a
-      # quote-juggling sed replacement).
-      FM_VERSION=$(echo "$SKILL_MD" | base64 -d 2> /dev/null \
-        | sed -n 's/^[[:space:]]*version:[[:space:]]*//p' \
-        | head -1 \
-        | tr -d "\"'" || true)
-      if [[ -n "$FM_VERSION" ]]; then
-        VERSION="$FM_VERSION"
-        VERSION_SRC="skill-md"
-      fi
-    fi
-    if [[ -z "$VERSION" ]]; then
-      echo "[!] $FULL_NAME: no version from release or SKILL.md (missing SKILL.md? dead-link candidate)" >&2
-    fi
+    echo "[-] $FULL_NAME: no GitHub Release, skipped (release is mandatory)" >> "$SKIPPED_FILE"
+    continue
   fi
 
-  if [[ $VERSION_SRC != "release" ]]; then
-    echo "[i] $FULL_NAME: no release found (version source: ${VERSION_SRC:-none})" >&2
-  fi
-
-  jq -n --argjson repo "$repo" --arg v "$VERSION" --arg src "$VERSION_SRC" --arg has_md "$HAS_MD" \
-    '$repo + {version: $v, version_source: $src, has_skill_md: $has_md}' >> "$SKILLS_FILE"
+  # The catalog's display name is the REPO name, not the frontmatter name:
+  # repo names are unique and match the html_url the table links to.
+  echo "$repo" | jq --arg v "$VERSION" --arg k "$KIND" \
+    '. + {version: $v, kind: $k}' >> "$SKILLS_FILE"
+  echo "[+] $FULL_NAME: kind=$KIND version=$VERSION" >> "$SKIPPED_FILE"
 done < <(echo "$REPOS" | jq -c '.[] // empty')
 
 SKILLS=$(jq -s 'if . == null then [] else . end' "$SKILLS_FILE")
+COUNT=$(echo "$SKILLS" | jq 'length')
 
+# Surface every skip decision on stderr (fail-visible).
+if [[ -s "$SKIPPED_FILE" ]]; then
+  cat "$SKIPPED_FILE" >&2
+fi
 
 # Write skills.json
 NOW=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 jq -n --arg updatedAt "$NOW" --argjson skills "$SKILLS" \
   '{updatedAt: $updatedAt, skills: $skills}' > "$DATA_FILE"
 
-echo "[*] Written $DATA_FILE"
+echo "[*] Written $DATA_FILE ($COUNT skill(s))"
 
 # --- Generate README.md ---
 TABLE_ROWS=$(echo "$SKILLS" | jq -r '
   if length == 0 then
-    "| _暂无 skill 条目_ | _—_ | _—_ | _—_ |"
+    "| _暂无 skill 条目_ | _—_ | _—_ | _—_ | _—_ |"
   else
     sort_by(.name) | map(
-      "| [\(.name)](\(.html_url))" +
-      (if .has_skill_md == "true" then "" else " ⚠️" end) +
-      " | \(if .version != "" then .version else "—" end) "
+      "| [\(.name)](\(.html_url)) "
+      + "| \(.kind // "—") "
+      + "| \(if .version != "" then .version else "—" end) "
       + "| \(.description // "—" | gsub("\\s+$"; "") | gsub("\\n"; " ")) "
       + "| \(.updated_at[:10]) |"
     ) | .[]
@@ -137,7 +210,7 @@ cat > README.md << EOF
 # CGArtLab Skills Catalog
 
 > 个人 AI Agent Skills 索引目录。
-> 本仓库自动扫描 \`cgartlab\` 名下以 \`-skill\` 结尾的仓库，并显式收录 \`cgartlab/news-report\`（由原 miniflux-mcp-skill 更名而来）、\`cgartlab/blacklight-weekly\`（由原 blacklight-weekly-skill 更名而来）与 \`cgartlab/person-profile\`（早于 -skill 命名约定的 skill 仓），收集摘要、版本和链接。
+> 本仓库自动扫描 \`cgartlab\` 名下所有仓库，按 **SKILL.md frontmatter 契约 + Release 硬门槛** 收录，收集类型、摘要、版本和链接。
 
 **授权**: [CC BY-NC-SA 4.0](LICENSE) · **来源**: [github.com/cgartlab/cgartlab-skills](https://github.com/cgartlab/cgartlab-skills)
 
@@ -145,23 +218,41 @@ cat > README.md << EOF
 
 ## 📦 Skills
 
-| Skill | Version | Description | Updated |
-|-------|---------|-------------|---------|
+| Skill | Kind | Version | Description | Updated |
+|-------|------|---------|-------------|---------|
 $TABLE_ROWS
 
-<sup>最后更新: ${UPDATED_AT} · 自动检测以 \`-skill\` 结尾的仓库及显式收录的 \`news-report\`、\`blacklight-weekly\`、\`person-profile\`</sup>
+<sup>最后更新: ${UPDATED_AT} · 收录条件：根目录 SKILL.md 的 frontmatter 含 name / description / metadata.kind（kind ∈ skill, agent, mcp），且仓库已发布 Release</sup>
 
 ---
 
 ## ➕ 添加新 Skill
 
-只需在你的 GitHub 账号下创建一个以 \`-skill\` 结尾的公开或私有仓库，本目录会在下次自动扫描时收录。
+只需在 \`cgartlab\` 账号下创建仓库（**名称不限**），并满足以下契约，本目录会在下次自动扫描时收录。
 
-建议每个 skill 仓库包含：
+| 条件 | 说明 |
+|------|------|
+| 根目录存在 \`SKILL.md\` | 遵循 [Agent Skills 标准](https://agentskills.io) 的 skill 定义 |
+| frontmatter 含 \`name\` 与 \`description\` | 技能名与触发描述 |
+| frontmatter 含 \`metadata.kind\` | 取值 \`skill\` / \`agent\` / \`mcp\`，用于索引分类 |
+| **已发布 Release** | \`tag_name\` 作为版本号；**无 Release 不收录** |
+
+\`SKILL.md\` frontmatter 示例：
+
+\`\`\`yaml
+---
+name: my-skill
+description: >-
+  一句话说明这个 skill 做什么、何时触发。
+metadata:
+  kind: skill
+---
+\`\`\`
+
+其他建议文件：
 
 | 文件 | 说明 |
 |------|------|
-| \`SKILL.md\` | 遵循 [Agent Skills 标准](https://agentskills.io) 的 skill 定义 |
 | \`README.md\` | 项目的简明介绍 |
 | License | 推荐 CC BY-NC-SA 4.0（与母仓库一致） |
 

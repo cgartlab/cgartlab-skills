@@ -47,61 +47,90 @@ run_case() {
 # ---------------------------------------------------------------------------
 # Assertions
 # ---------------------------------------------------------------------------
+
+# Helper: count entries in skills.json
+skill_count() {
+  jq '.skills | length' "$1/skills.json" 2>/dev/null || echo "-1"
+}
+
 assert_release_ok() {
   local sandbox="$1" rc="$2" name="$3"
   [[ $rc -eq 0 ]] && pass "$name: exit 0" || fail "$name: expected exit 0, got $rc"
-  if [[ -f "$sandbox/skills.json" ]] && grep -q '"version": "v0.3.0"' "$sandbox/skills.json" \
-      && grep -q '"version_source": "release"' "$sandbox/skills.json"; then
-    pass "$name: version from release"
+
+  local n
+  n=$(skill_count "$sandbox")
+  [[ "$n" == "2" ]] && pass "$name: 2 skills catalogued" \
+    || fail "$name: expected 2 skills, got $n"
+
+  if grep -q '"kind": "skill"' "$sandbox/skills.json" \
+      && grep -q '"version": "v0.3.0"' "$sandbox/skills.json"; then
+    pass "$name: kind + version recorded"
   else
-    fail "$name: version should come from release (v0.3.0 / release)"
+    fail "$name: skills.json must record kind=skill and version=v0.3.0"
   fi
-  [[ -f "$sandbox/README.md" ]] && grep -q 'v0.3.0' "$sandbox/README.md" \
-    && pass "$name: README shows version" || fail "$name: README should contain v0.3.0"
+
+  # README: Kind column header and values
+  grep -q '| Skill | Kind | Version | Description | Updated |' "$sandbox/README.md" \
+    && pass "$name: README has Kind column" \
+    || fail "$name: README must have a Kind column"
+  grep -q '| skill | v0.3.0 |' "$sandbox/README.md" \
+    && pass "$name: README shows kind + version" \
+    || fail "$name: README should show '| skill | v0.3.0 |'"
 }
 
-assert_fallback_skill_md() {
-  local sandbox="$1" rc="$2" name="$3"
-  [[ $rc -eq 0 ]] && pass "$name: exit 0" || fail "$name: expected exit 0, got $rc"
-  if [[ -f "$sandbox/skills.json" ]] && grep -q '"version": "0.1.1"' "$sandbox/skills.json" \
-      && grep -q '"version_source": "skill-md"' "$sandbox/skills.json"; then
-    pass "$name: fallback to SKILL.md version"
+# Repos failing the frontmatter contract are skipped, not fatal.
+assert_contract_gate() {
+  local sandbox="$1" rc="$2" name="$3" bad_repo="$4"
+  [[ $rc -eq 0 ]] && pass "$name: exit 0 (contract failure is a skip, not a crash)" \
+    || fail "$name: expected exit 0, got $rc"
+
+  local n
+  n=$(skill_count "$sandbox")
+  [[ "$n" == "1" ]] && pass "$name: only the valid skill catalogued" \
+    || fail "$name: expected exactly 1 skill, got $n"
+
+  if grep -q "$bad_repo" "$sandbox/skills.json"; then
+    fail "$name: $bad_repo must NOT appear in skills.json"
   else
-    fail "$name: person-profile has no release, version must fall back to 0.1.1/skill-md"
+    pass "$name: $bad_repo excluded from skills.json"
   fi
-  [[ -f "$sandbox/README.md" ]] && grep -q '0\.1\.1' "$sandbox/README.md" \
-    && pass "$name: README shows fallback version" || fail "$name: README should contain 0.1.1"
+
+  # The good repo must still be present with kind + version.
+  grep -q '"kind": "skill"' "$sandbox/skills.json" \
+    && grep -q '"version": "v0.3.0"' "$sandbox/skills.json" \
+    && pass "$name: valid skill still catalogued with kind + version" \
+    || fail "$name: valid skill must be catalogued with kind + version"
 }
+
+assert_missing_kind()  { assert_contract_gate "$1" "$2" "$3" "no-kind-skill"; }
+assert_bad_kind()      { assert_contract_gate "$1" "$2" "$3" "wrong-kind-skill"; }
+assert_no_release()    { assert_contract_gate "$1" "$2" "$3" "unreleased-skill"; }
 
 assert_no_skill_md() {
   local sandbox="$1" rc="$2" name="$3"
-  [[ $rc -eq 0 ]] && pass "$name: exit 0 (no SKILL.md must not abort)" || fail "$name: expected exit 0, got $rc"
-  if [[ -f "$sandbox/skills.json" ]]; then
-    if grep -q '"version": ""' "$sandbox/skills.json" && grep -q '"version_source": ""' "$sandbox/skills.json"; then
-      pass "$name: empty version + empty source recorded"
-    else
-      fail "$name: expected empty version/version_source for gamma-skill"
-    fi
-    if grep -q '"has_skill_md": ""' "$sandbox/skills.json"; then
-      pass "$name: has_skill_md empty for repo without SKILL.md"
-    else
-      fail "$name: skills.json should record empty has_skill_md"
-    fi
-  else
-    fail "$name: skills.json missing"
-  fi
-  [[ -f "$sandbox/README.md" ]] && grep -q '| — |' "$sandbox/README.md" \
-    && pass "$name: README shows — for missing version" || fail "$name: README should show — placeholder"
-  [[ -f "$sandbox/README.md" ]] && grep -q 'gamma-skill.*⚠️' "$sandbox/README.md" \
-    && pass "$name: README marks missing SKILL.md with warning" || fail "$name: README should flag dead-link candidate with warning"
+  [[ $rc -eq 0 ]] && pass "$name: exit 0 (missing SKILL.md is a skip, not a crash)" \
+    || fail "$name: expected exit 0, got $rc"
+
+  local n
+  n=$(skill_count "$sandbox")
+  [[ "$n" == "0" ]] && pass "$name: nothing catalogued" \
+    || fail "$name: expected 0 skills, got $n"
+
+  [[ -f "$sandbox/skills.json" ]] && pass "$name: skills.json still written" \
+    || fail "$name: skills.json must exist even when empty"
+
+  [[ -f "$sandbox/README.md" ]] && grep -q '| _暂无 skill 条目_' "$sandbox/README.md" \
+    && pass "$name: README shows empty-state row" \
+    || fail "$name: README should show the empty-state placeholder"
 }
 
 assert_api_error() {
   local sandbox="$1" rc="$2" name="$3"
-  [[ $rc -ne 0 ]] && pass "$name: exits non-zero on search failure" || fail "$name: expected failure, got exit 0"
+  [[ $rc -ne 0 ]] && pass "$name: exits non-zero on listing failure" \
+    || fail "$name: expected failure, got exit 0"
   # script must not leave partial artifacts as if successful
   [[ ! -f "$sandbox/skills.json" ]] && pass "$name: no skills.json left behind" \
-    || fail "$name: should not write skills.json on search failure"
+    || fail "$name: should not write skills.json on listing failure"
 }
 
 # ---------------------------------------------------------------------------
@@ -115,10 +144,12 @@ chmod +x "$HERE/fixtures/gh" 2>/dev/null || true
 workdir="$(mktemp -d)"
 trap 'rm -rf "$workdir"' EXIT
 
-run_case "release_ok (release path)"        release_ok        assert_release_ok     "$workdir"
-run_case "fallback_skill_md (no release)"   fallback_skill_md  assert_fallback_skill_md "$workdir"
-run_case "no_skill_md (no release, no md)"  no_skill_md        assert_no_skill_md   "$workdir"
-run_case "api_error (search fails)"         api_error          assert_api_error     "$workdir"
+run_case "release_ok (valid skills catalogued)"        release_ok        assert_release_ok     "$workdir"
+run_case "missing_kind (metadata.kind absent)"         missing_kind      assert_missing_kind   "$workdir"
+run_case "bad_kind (metadata.kind out of range)"       bad_kind          assert_bad_kind       "$workdir"
+run_case "no_release (release gate)"                   no_release        assert_no_release     "$workdir"
+run_case "no_skill_md (nothing to catalogue)"          no_skill_md       assert_no_skill_md    "$workdir"
+run_case "api_error (listing fails)"                   api_error         assert_api_error      "$workdir"
 
 log ""
 log "=========="

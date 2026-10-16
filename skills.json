@@ -1,35 +1,23 @@
 {
-  "updatedAt": "2026-10-15T21:25:29Z",
+  "updatedAt": "2026-10-16T14:12:28Z",
   "skills": [
-    {
-      "description": "An Agent Skill that automates the first-draft production of Blacklight Weekly.",
-      "full_name": "cgartlab/blacklight-weekly",
-      "html_url": "https://github.com/cgartlab/blacklight-weekly",
-      "name": "blacklight-weekly",
-      "updated_at": "2026-09-06T00:31:08Z",
-      "version": "v0.1.1",
-      "version_source": "release",
-      "has_skill_md": "true"
-    },
     {
       "description": "news-report — a modular news-gathering Agent Skill: browse feeds and search articles across pluggable information sources (Miniflux RSS via MCP included).",
       "full_name": "cgartlab/news-report",
       "html_url": "https://github.com/cgartlab/news-report",
       "name": "news-report",
-      "updated_at": "2026-10-15T21:19:34Z",
+      "updated_at": "2026-10-16T13:49:10Z",
       "version": "v0.3.0",
-      "version_source": "release",
-      "has_skill_md": "true"
+      "kind": "skill"
     },
     {
       "description": "人物档案方法论独立 skill 项目（Skill for Person Profile Creation）",
       "full_name": "cgartlab/person-profile",
       "html_url": "https://github.com/cgartlab/person-profile",
       "name": "person-profile",
-      "updated_at": "2026-10-05T23:50:35Z",
-      "version": "0.1.1",
-      "version_source": "skill-md",
-      "has_skill_md": "true"
+      "updated_at": "2026-10-16T13:52:10Z",
+      "version": "v0.1.1",
+      "kind": "skill"
     }
   ]
 }

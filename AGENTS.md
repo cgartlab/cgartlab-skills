@@ -40,25 +40,23 @@ cgartlab-skills/
 ### 检测规则
 
 ```
-扫描 cgartlab 名下所有仓库
-  → 筛选名称以 -skill 结尾，或命中显式例外（news-report、blacklight-weekly、person-profile）
-     （news-report：原 miniflux-mcp-skill 更名后不再以 -skill 结尾；
-      blacklight-weekly：原 blacklight-weekly-skill 更名后不再以 -skill 结尾；
-      person-profile：早于 -skill 命名约定的 skill 仓。三者仍属官方 skill 仓库，需继续收录）
-  → 排除 cgartlab-skills 自身
-  → 对每个仓库获取 description + version（优先 latest release；
-     无 release 时回退读 SKILL.md frontmatter 的 metadata.version）
-  → 写入 skills.json + 渲染 README.md
+扫描 cgartlab 名下所有仓库（排除 cgartlab-skills 自身）
+  → 仓库根目录必须存在 SKILL.md，否则跳过
+  → 解析 SKILL.md YAML frontmatter，必须包含 name、description 与 metadata.kind，
+     且 metadata.kind 必须在 {skill, agent, mcp} 中，否则跳过
+  → 必须存在 latest GitHub Release（tag_name 作为版本号），无 release 则跳过
+  → 写入 skills.json（新增 kind 字段）+ 渲染 README.md（新增 Kind 列）
 ```
 
 ---
 
 ## 添加新 Skill
 
-1. 在 cgartlab 账号下创建仓库，名称以 `-skill` 结尾
-2. 建议包含 `SKILL.md`（遵循 Agent Skills 标准）
-3. 发布 Release 生成版本号（推荐）；未发布时索引会回退读 SKILL.md 头部的 `metadata.version`
-4. 本目录在下一次自动扫描时收录
+1. 在 cgartlab 账号下创建仓库（名称不限）
+2. 仓库根目录放入 `SKILL.md`，frontmatter 必须包含 `name`、`description` 与 `metadata.kind`
+   （`kind` 取值：`skill` / `agent` / `mcp`，遵循 Agent Skills 标准）
+3. 发布 Release 生成版本号（**必须有 Release**，否则不进入索引）
+4. 本目录在下一次自动扫描时按上述契约自动收录
 
 ---
 
