@@ -28,6 +28,74 @@ export MSYS2_ARG_CONV_EXCL="*"
 OWNER="${GH_OWNER:-cgartlab}"
 DATA_FILE="skills.json"
 
+# ── Rate-limit protection (issue #13) ───────────────────────────────────────
+# GitHub's REST API allows 5000 req/hour for authenticated requests. This
+# script makes 2-3 calls per repo, so a 0.5s inter-request delay keeps us far
+# below the ceiling while adding only ~35s for a 60-repo scan.
+API_DELAY="${API_DELAY:-0.5}"
+# Retries for transient failures (network blips, secondary rate limits).
+API_RETRIES="${API_RETRIES:-3}"
+# Hard ceiling on consecutive rate-limit hits before aborting the whole run.
+MAX_RATE_LIMIT_HITS="${MAX_RATE_LIMIT_HITS:-5}"
+
+RATE_LIMIT_HITS=0
+TRANSIENT_ERRORS=0
+
+# api_call <endpoint> [extra gh api args...]
+# Wraps `gh api` with pacing, Retry-After handling and bounded retries.
+# Prints the response body on success. Returns non-zero only when retries are
+# exhausted — callers decide whether that is fatal.
+api_call() {
+  local endpoint="$1"; shift
+  local attempt=0
+
+  while :; do
+    attempt=$((attempt + 1))
+
+    local out rc
+    # Capture headers so we can read Retry-After / X-RateLimit-Remaining.
+    out=$(gh api --include "$@" "$endpoint" 2>&1) && rc=0 || rc=$?
+
+    if [[ $rc -eq 0 ]]; then
+      # Strip the HTTP header block; keep the body only.
+      # `gh api --include` separates headers from body with a blank line whose
+      # terminator varies (CRLF on some platforms, LF on others), so match any
+      # empty line rather than a literal CRLF.
+      printf '%s\n' "$out" | awk 'BEGIN{h=1} h && /^[[:space:]]*$/ {h=0; next} !h {print}'
+      sleep "$API_DELAY"
+      return 0
+    fi
+
+    # Rate limit / server-side failures need a cooldown before retrying.
+    if printf '%s' "$out" | grep -qiE 'rate limit|abuse detection|HTTP 429|HTTP 5[0-9][0-9]'; then
+      RATE_LIMIT_HITS=$((RATE_LIMIT_HITS + 1))
+      if [[ $RATE_LIMIT_HITS -ge $MAX_RATE_LIMIT_HITS ]]; then
+        echo "[!] aborted: $RATE_LIMIT_HITS rate-limit/server errors in this run" >&2
+        return 1
+      fi
+      local wait_for
+      wait_for=$(printf '%s' "$out" | grep -iE '^retry-after:' | head -1 | tr -dc '0-9') || true
+      [[ -n "$wait_for" ]] || wait_for=$((attempt * 5))
+      echo "[!] rate limited on $endpoint, waiting ${wait_for}s (hit $RATE_LIMIT_HITS)" >&2
+      sleep "$wait_for"
+    elif printf '%s' "$out" | grep -qE 'HTTP 404|Not Found'; then
+      # 404 is a definitive answer (resource absent), not a transient failure.
+      # Retrying it wastes quota and pollutes the transient-error count.
+      # No stderr noise: callers treat rc=2 as "absent" and log their own reason.
+      return 2
+    else
+      # Plain transient failure (network, DNS, 502): short backoff.
+      TRANSIENT_ERRORS=$((TRANSIENT_ERRORS + 1))
+      if [[ $attempt -ge $API_RETRIES ]]; then
+        echo "[!] giving up on $endpoint after $attempt attempts" >&2
+        return 1
+      fi
+      echo "[!] transient error on $endpoint (attempt $attempt/$API_RETRIES), backing off" >&2
+      sleep "$attempt"
+    fi
+  done
+}
+
 echo "[*] Scanning ALL repos of $OWNER (frontmatter contract + release gate) ..."
 
 # Fetch all repos for the owner, exclude this repo.
@@ -38,10 +106,13 @@ echo "[*] Scanning ALL repos of $OWNER (frontmatter contract + release gate) ...
 # A freshly renamed repo may lag in the search index; that is a bounded delay
 # (minutes) and self-heals on the next run, which is acceptable versus silently
 # missing private repos forever.
-REPOS=$(gh api "search/repositories?q=user:$OWNER&per_page=100" --paginate \
+if ! REPOS=$(api_call "search/repositories?q=user:$OWNER&per_page=100" --paginate \
   --jq '[.items[] | select(.full_name != "cgartlab/cgartlab-skills")
         | {name, full_name, description, updated_at, html_url}]' \
-  | jq -s 'add // []')
+  | jq -s 'add // []'); then
+  echo "[!] FATAL: could not list repos for $OWNER — refusing to write a partial catalog" >&2
+  exit 1
+fi
 
 TOTAL=$(echo "$REPOS" | jq 'length // 0')
 echo "[*] Found $TOTAL repo(s) to evaluate"
@@ -103,16 +174,19 @@ fm_value() {
   ' "$fm"
 }
 
-# Fetch SKILL.md into a file; return 0 on success, 1 on any failure.
+# Fetch SKILL.md into a file.
+# Returns 0 on success, 2 when the file simply does not exist (normal skip),
+# 1 on a genuine API failure. Callers log different reasons accordingly.
 # Uses the raw media type so the API returns the decoded file directly —
 # no base64 round-trip (which is fragile on Windows/MSYS for large files).
 fetch_skill_md() {
-  local full="$1" out="$2"
-  if ! gh api -H "Accept: application/vnd.github.raw" \
-      "/repos/$full/contents/SKILL.md" > "$out" 2>/dev/null; then
-    return 1
+  local full="$1" out="$2" rc=0
+  api_call "/repos/$full/contents/SKILL.md" \
+      -H "Accept: application/vnd.github.raw" > "$out" 2>/dev/null || rc=$?
+  if [[ $rc -ne 0 ]]; then
+    return $rc
   fi
-  [[ -s "$out" ]] || return 1
+  [[ -s "$out" ]] || return 2
   return 0
 }
 
@@ -121,8 +195,14 @@ while IFS= read -r repo; do
 
   # --- Gate 1: SKILL.md must exist at the repo root -------------------------
   SKILL_MD_FILE="$TMP_DIR/skill.md"
-  if ! fetch_skill_md "$FULL_NAME" "$SKILL_MD_FILE"; then
-    echo "[-] $FULL_NAME: no SKILL.md at root, skipped" >> "$SKIPPED_FILE"
+  FETCH_RC=0
+  fetch_skill_md "$FULL_NAME" "$SKILL_MD_FILE" || FETCH_RC=$?
+  if [[ $FETCH_RC -ne 0 ]]; then
+    if [[ $FETCH_RC -eq 2 ]]; then
+      echo "[-] $FULL_NAME: no SKILL.md at root, skipped" >> "$SKIPPED_FILE"
+    else
+      echo "[!] $FULL_NAME: SKILL.md fetch failed (API error), skipped" >> "$SKIPPED_FILE"
+    fi
     continue
   fi
 
@@ -155,15 +235,23 @@ while IFS= read -r repo; do
   fi
 
   # --- Gate 3: a release must exist (tag_name becomes the version) ----------
-  # The releases endpoint 404s for repos without one. Treat that as "no
-  # release" and skip, never as a fatal error.
+  # A 404 means "this repo has no release" (normal skip). Any other failure is
+  # annotated as an API error so a degraded run stays distinguishable from a
+  # legitimately release-less repo.
   VERSION=""
-  RELEASE_JSON=$(gh api "/repos/$FULL_NAME/releases/latest" 2>/dev/null || true)
-  if [[ -n "$RELEASE_JSON" ]]; then
-    VERSION=$(echo "$RELEASE_JSON" | jq -r '.tag_name // empty')
+  REL_RC=0
+  RELEASE_JSON=$(api_call "/repos/$FULL_NAME/releases/latest" 2>/dev/null) || REL_RC=$?
+  if [[ $REL_RC -eq 0 && -n "$RELEASE_JSON" ]]; then
+    VERSION=$(echo "$RELEASE_JSON" | jq -r '.tag_name // empty' 2>/dev/null || true)
   fi
   if [[ -z "$VERSION" ]]; then
-    echo "[-] $FULL_NAME: no GitHub Release, skipped (release is mandatory)" >> "$SKIPPED_FILE"
+    if [[ $REL_RC -eq 0 ]]; then
+      echo "[-] $FULL_NAME: no GitHub Release, skipped (release is mandatory)" >> "$SKIPPED_FILE"
+    elif [[ $REL_RC -eq 2 ]]; then
+      echo "[-] $FULL_NAME: no GitHub Release, skipped (release is mandatory)" >> "$SKIPPED_FILE"
+    else
+      echo "[!] $FULL_NAME: release lookup failed (API error), skipped" >> "$SKIPPED_FILE"
+    fi
     continue
   fi
 
@@ -180,6 +268,19 @@ COUNT=$(echo "$SKILLS" | jq 'length')
 # Surface every skip decision on stderr (fail-visible).
 if [[ -s "$SKIPPED_FILE" ]]; then
   cat "$SKIPPED_FILE" >&2
+fi
+
+# --- Completeness guard (issue #13) ---------------------------------------
+# A catalog written while the API was degraded would silently drop skills.
+# Every repo must be accounted for: either catalogued, or explicitly skipped.
+EXAMINED=$(( COUNT + $(wc -l < "$SKIPPED_FILE" | tr -d ' ') ))
+if [[ "$TOTAL" -gt 0 && "$EXAMINED" -lt "$TOTAL" ]]; then
+  echo "[!] FATAL: examined $EXAMINED of $TOTAL repos — refusing to write a partial catalog" >&2
+  echo "[!] re-run once the API is healthy (rate-limit hits: $RATE_LIMIT_HITS, transient: $TRANSIENT_ERRORS)" >&2
+  exit 1
+fi
+if [[ "$RATE_LIMIT_HITS" -gt 0 || "$TRANSIENT_ERRORS" -gt 0 ]]; then
+  echo "[!] note: run completed with $RATE_LIMIT_HITS rate-limit hit(s) and $TRANSIENT_ERRORS transient error(s)" >&2
 fi
 
 # Write skills.json
