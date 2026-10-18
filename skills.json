@@ -1,12 +1,21 @@
 {
-  "updatedAt": "2026-10-16T14:12:28Z",
+  "updatedAt": "2026-10-18T10:21:10Z",
   "skills": [
+    {
+      "description": "An Agent Skill that automates the first-draft production of Blacklight Weekly.",
+      "full_name": "cgartlab/blacklight-weekly",
+      "html_url": "https://github.com/cgartlab/blacklight-weekly",
+      "name": "blacklight-weekly",
+      "updated_at": "2026-10-18T09:28:21Z",
+      "version": "v0.1.1",
+      "kind": "skill"
+    },
     {
       "description": "news-report — a modular news-gathering Agent Skill: browse feeds and search articles across pluggable information sources (Miniflux RSS via MCP included).",
       "full_name": "cgartlab/news-report",
       "html_url": "https://github.com/cgartlab/news-report",
       "name": "news-report",
-      "updated_at": "2026-10-16T13:49:10Z",
+      "updated_at": "2026-10-18T09:52:40Z",
       "version": "v0.3.0",
       "kind": "skill"
     },
@@ -15,7 +24,7 @@
       "full_name": "cgartlab/person-profile",
       "html_url": "https://github.com/cgartlab/person-profile",
       "name": "person-profile",
-      "updated_at": "2026-10-16T13:52:10Z",
+      "updated_at": "2026-10-18T08:53:35Z",
       "version": "v0.1.1",
       "kind": "skill"
     }
