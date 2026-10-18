@@ -53,15 +53,10 @@ api_call() {
     attempt=$((attempt + 1))
 
     local out rc
-    # Capture headers so we can read Retry-After / X-RateLimit-Remaining.
-    out=$(gh api --include "$@" "$endpoint" 2>&1) && rc=0 || rc=$?
+    out=$(gh api "$@" "$endpoint" 2>&1) && rc=0 || rc=$?
 
     if [[ $rc -eq 0 ]]; then
-      # Strip the HTTP header block; keep the body only.
-      # `gh api --include` separates headers from body with a blank line whose
-      # terminator varies (CRLF on some platforms, LF on others), so match any
-      # empty line rather than a literal CRLF.
-      printf '%s\n' "$out" | awk 'BEGIN{h=1} h && /^[[:space:]]*$/ {h=0; next} !h {print}'
+      printf '%s\n' "$out"
       sleep "$API_DELAY"
       return 0
     fi
@@ -74,11 +69,13 @@ api_call() {
         return 1
       fi
       local wait_for
-      wait_for=$(printf '%s' "$out" | grep -iE '^retry-after:' | head -1 | tr -dc '0-9') || true
+      # gh surfaces the wait either as a Retry-After header (with --include) or
+      # as "retry after N seconds" in its error text; handle both.
+      wait_for=$(printf '%s' "$out" | grep -ioE 'retry[ -]after[^0-9]*[0-9]+' | grep -oE '[0-9]+' | head -1) || true
       [[ -n "$wait_for" ]] || wait_for=$((attempt * 5))
       echo "[!] rate limited on $endpoint, waiting ${wait_for}s (hit $RATE_LIMIT_HITS)" >&2
       sleep "$wait_for"
-    elif printf '%s' "$out" | grep -qE 'HTTP 404|Not Found'; then
+    elif printf '%s' "$out" | grep -qiE 'HTTP 404|Not Found'; then
       # 404 is a definitive answer (resource absent), not a transient failure.
       # Retrying it wastes quota and pollutes the transient-error count.
       # No stderr noise: callers treat rc=2 as "absent" and log their own reason.
