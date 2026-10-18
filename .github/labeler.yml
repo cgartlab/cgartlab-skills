@@ -1,24 +1,12 @@
 # auto-label 路径映射表（actions/labeler 语法）
 # 根据改动文件自动打标签；缺失标签会在 sync-labels: true 时自动创建。
+# 适配 cgartlab-skills 仓库真实结构：Skill 目录索引仓库（skills.json + catalog 脚本）。
+# 原则：type:bug 不参与路径推断（由 issue 模板承载），每个 label 至少命中一类真实文件。
 
-🐛 type:bug:
+📋 type:task:
   - changed-files:
       - any-glob-to-any-file:
-          - '*.md'
-          - '*.txt'
-
-✨ type:enhancement:
-  - changed-files:
-      - any-glob-to-any-file:
-          - 'src/**'
-          - 'site/**'
-          - '*.astro'
-          - '*.ts'
-          - '*.tsx'
-          - '*.jsx'
-          - '*.js'
-          - '*.go'
-          - '*.py'
+          - 'skills.json'
 
 📝 type:docs:
   - changed-files:
@@ -26,47 +14,30 @@
           - 'README.md'
           - 'AGENTS.md'
           - 'LESSONS.md'
-          - 'docs/**'
+          - 'CHANGELOG.md'
+          - '.agents/**'
+          - '.claude/**'
           - '.github/ISSUE_TEMPLATE/**'
           - '.github/PULL_REQUEST_TEMPLATE.md'
+
+🧪 area:scripts:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'bin/**'
+          - 'tests/**'
 
 ⚙️ area:infra:
   - changed-files:
       - any-glob-to-any-file:
           - '.github/**'
-          - 'wrangler.jsonc'
-          - 'wrangler.toml'
-          - 'astro.config.*'
-          - 'uno.config.*'
-          - 'tailwind.config.*'
-          - 'package.json'
-          - 'pnpm-lock.yaml'
-          - 'pnpm-workspace.yaml'
-          - 'go.mod'
-          - 'go.sum'
-          - 'scripts/**'
-          - 'Makefile'
-
-🎨 area:theme:
-  - changed-files:
-      - any-glob-to-any-file:
-          - 'src/components/**'
-          - 'src/styles/**'
-          - 'src/layouts/**'
-          - 'src/pages/**'
-
-📦 area:content:
-  - changed-files:
-      - any-glob-to-any-file:
-          - 'src/content/**'
-          - 'content/**'
-          - 'public/**'
+          - '.gitattributes'
+          - '.gitignore'
 
 🔖 priority:P0:
   - changed-files:
       - any-glob-to-any-file:
           - '.github/workflows/*ci*'
           - '.github/workflows/*release*'
+          - '.github/workflows/*skill-catalog*'
           - 'AGENTS.md'
-          - 'security.md'
           - 'SECURITY.md'
