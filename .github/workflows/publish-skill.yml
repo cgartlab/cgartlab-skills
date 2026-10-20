@@ -1,0 +1,264 @@
+name: Publish skill
+
+# Reusable workflow: publish an Agent Skill to the public registries.
+#
+# Called from a skill repo's own `.github/workflows/publish.yml` on
+# `release: types: [published]` (see the caller template at the bottom of this
+# file's companion doc `docs/PUBLISHING.md`).
+#
+# Why a reusable workflow instead of copy-pasted steps: the three registries
+# have different auth, different package formats (zip vs directory) and
+# different slug rules. Keeping that in one place means a fix lands everywhere
+# at once, and a skill repo only carries a ~12-line caller.
+#
+# SKILL.md does NOT need registry-specific fields for ClawHub (it accepts
+# --slug on the command line). SkillHub is different: its CLI reads `slug` and
+# `displayName` straight out of SKILL.md and refuses to publish without them.
+
+on:
+  workflow_call:
+    inputs:
+      skill-dir:
+        description: Path to the skill folder (must contain SKILL.md)
+        type: string
+        default: "."
+      slug:
+        description: >-
+          Registry slug. Used as-is by ClawHub (--slug) and injected into the
+          SkillHub publish copy of SKILL.md. Leave empty to skip SkillHub.
+        type: string
+        required: true
+      display-name:
+        description: Human-readable name shown on the registries
+        type: string
+        required: true
+      version:
+        description: >-
+          SemVer to publish. Leave empty to read the `version` field from
+          SKILL.md.
+        type: string
+        default: ""
+      publish-clawhub:
+        description: Publish to ClawHub
+        type: boolean
+        default: true
+      publish-skillhub:
+        description: Publish to SkillHub
+        type: boolean
+        default: true
+      dry-run:
+        description: Validate and package only; do not contact the registries
+        type: boolean
+        default: false
+    secrets:
+      CLAWHUB_TOKEN:
+        description: ClawHub API token (clh_...)
+        required: false
+      SKILLHUB_API_KEY:
+        description: SkillHub community token (skh_...)
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  resolve:
+    name: Resolve version and metadata
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+      slug: ${{ inputs.slug }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read version from SKILL.md when not pinned
+        id: meta
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+          SKILL_DIR: ${{ inputs.skill-dir }}
+        run: |
+          set -euo pipefail
+          SKILL_MD="${SKILL_DIR%/}/SKILL.md"
+          if [ ! -f "$SKILL_MD" ]; then
+            echo "::error::no SKILL.md at $SKILL_MD"
+            exit 1
+          fi
+
+          if [ -n "$INPUT_VERSION" ]; then
+            VERSION="$INPUT_VERSION"
+          else
+            # Frontmatter only (between the first two `---`). Two accepted
+            # shapes, because the repos are inconsistent:
+            #   version: 0.7.1              (top level, like news-report)
+            #   metadata:
+            #     version: "0.1.1"          (nested, like attention/quill)
+            VERSION="$(awk '
+              NR==1 && $0!="---" { exit }
+              NR>1 && $0=="---" { exit }
+              NR>1 && /^version:[[:space:]]*/ {
+                sub(/^version:[[:space:]]*/, ""); gsub(/["\047 ]/, ""); print; exit
+              }
+              NR>1 && /^metadata:[[:space:]]*$/ { inmeta=1; next }
+              inmeta && /^  version:[[:space:]]*/ {
+                sub(/^  version:[[:space:]]*/, ""); gsub(/["\047 ]/, ""); print; exit
+              }
+              inmeta && /^[^[:space:]]/ { inmeta=0 }
+            ' "$SKILL_MD")"
+          fi
+
+          if [ -z "$VERSION" ]; then
+            echo "::error::could not resolve a version — set 'version:' (top level or under metadata:) in SKILL.md frontmatter, or pass inputs.version"
+            exit 1
+          fi
+          if ! printf '%s' "$VERSION" | grep -Eq '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$'; then
+            echo "::error::version '$VERSION' is not valid SemVer"
+            exit 1
+          fi
+
+          # Slug must be kebab-case, 3-128 chars (SkillHub rule; ClawHub is looser).
+          if ! printf '%s' "${{ inputs.slug }}" | grep -Eq '^[a-z0-9]([a-z0-9-]*[a-z0-9])?$'; then
+            echo "::error::slug '${{ inputs.slug }}' is not kebab-case"
+            exit 1
+          fi
+
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "::notice::publishing ${{ inputs.slug }}@$VERSION"
+
+  publish-clawhub:
+    name: Publish to ClawHub
+    needs: resolve
+    if: inputs.publish-clawhub
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install ClawHub CLI
+        run: npm install --global clawhub
+
+      - name: Check token
+        id: token
+        env:
+          CLAWHUB_TOKEN: ${{ secrets.CLAWHUB_TOKEN }}
+        run: |
+          if [ -z "$CLAWHUB_TOKEN" ]; then
+            echo "::error::CLAWHUB_TOKEN secret is not configured"
+            exit 1
+          fi
+          echo "present=true" >> "$GITHUB_OUTPUT"
+
+      - name: Authenticate
+        env:
+          CLAWHUB_TOKEN: ${{ secrets.CLAWHUB_TOKEN }}
+        run: |
+          clawhub login --token "$CLAWHUB_TOKEN" --no-input
+          clawhub whoami
+
+      - name: Publish
+        env:
+          SKILL_DIR: ${{ inputs.skill-dir }}
+          SLUG: ${{ needs.resolve.outputs.slug }}
+          DISPLAY_NAME: ${{ inputs.display-name }}
+          VERSION: ${{ needs.resolve.outputs.version }}
+          DRY_RUN: ${{ inputs.dry-run }}
+        run: |
+          set -euo pipefail
+          ARGS=( "$SKILL_DIR" --slug "$SLUG" --name "$DISPLAY_NAME" --version "$VERSION" )
+          if [ "$DRY_RUN" = "true" ]; then
+            ARGS+=(--dry-run)
+          fi
+          clawhub publish "${ARGS[@]}"
+          echo "::notice::ClawHub: $SLUG@$VERSION $( [ "$DRY_RUN" = "true" ] && echo '(dry run)' || echo 'published' )"
+
+  publish-skillhub:
+    name: Publish to SkillHub
+    needs: resolve
+    if: inputs.publish-skillhub
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      # The SkillHub CLI reads `slug` / `displayName` straight out of SKILL.md
+      # and hard-fails with "SKILL.md 缺少 slug" when absent. Rather than force
+      # every skill repo to carry registry-specific frontmatter, copy the skill
+      # into a staging dir and inject the two fields there.
+      - name: Stage skill with registry metadata
+        env:
+          SKILL_DIR: ${{ inputs.skill-dir }}
+          SLUG: ${{ needs.resolve.outputs.slug }}
+          DISPLAY_NAME: ${{ inputs.display-name }}
+          VERSION: ${{ needs.resolve.outputs.version }}
+        run: |
+          set -euo pipefail
+          STAGE="$RUNNER_TEMP/skillhub-stage"
+          rm -rf "$STAGE"
+          mkdir -p "$STAGE"
+          cp -a "${SKILL_DIR%/}/." "$STAGE/"
+
+          python3 - "$STAGE/SKILL.md" "$SLUG" "$DISPLAY_NAME" "$VERSION" <<'PY'
+          import sys
+          from pathlib import Path
+
+          path = Path(sys.argv[1])
+          slug, display, version = sys.argv[2], sys.argv[3], sys.argv[4]
+          text = path.read_text(encoding="utf-8")
+
+          if not text.startswith("---\n"):
+              raise SystemExit("SKILL.md does not start with YAML frontmatter")
+
+          # Drop any existing slug/displayName/version so we own the values.
+          lines = text.split("\n")
+          end = next(i for i in range(1, len(lines)) if lines[i] == "---")
+          body = [l for l in lines[1:end]
+                  if not l.startswith(("slug:", "displayName:", "version:"))]
+          injected = [f"slug: {slug}", f"displayName: {display}", f"version: {version}"]
+          new = "\n".join(["---"] + injected + body + lines[end:])
+          path.write_text(new, encoding="utf-8")
+          print(f"injected slug={slug} displayName={display} version={version}")
+          PY
+
+      - name: Install SkillHub CLI
+        # Download first, then run — no pipe-to-bash (CWE-494).
+        run: |
+          set -euo pipefail
+          curl -fsSL https://skillhub.cn/install/install.sh -o /tmp/skillhub-install.sh
+          test -s /tmp/skillhub-install.sh
+          bash /tmp/skillhub-install.sh --cli-only
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Check token
+        env:
+          SKILLHUB_API_KEY: ${{ secrets.SKILLHUB_API_KEY }}
+        run: |
+          if [ -z "$SKILLHUB_API_KEY" ]; then
+            echo "::error::SKILLHUB_API_KEY secret is not configured"
+            exit 1
+          fi
+
+      - name: Authenticate
+        env:
+          SKILLHUB_API_KEY: ${{ secrets.SKILLHUB_API_KEY }}
+        run: |
+          skillhub login --key "$SKILLHUB_API_KEY"
+          skillhub auth whoami
+
+      - name: Publish
+        env:
+          SLUG: ${{ needs.resolve.outputs.slug }}
+          VERSION: ${{ needs.resolve.outputs.version }}
+          DRY_RUN: ${{ inputs.dry-run }}
+        run: |
+          set -euo pipefail
+          STAGE="$RUNNER_TEMP/skillhub-stage"
+          ARGS=( "$STAGE" --version "$VERSION" )
+          if [ "$DRY_RUN" = "true" ]; then
+            ARGS+=(--dry-run)
+          fi
+          skillhub publish "${ARGS[@]}"
+          echo "::notice::SkillHub: $SLUG@$VERSION $( [ "$DRY_RUN" = "true" ] && echo '(dry run)' || echo 'published' )"
