@@ -12,7 +12,7 @@
 
 ### Changed
 
-- 约束落地：AGENTS.md 自动化表格（移除 `repository_dispatch` + ⚠️ 不跨仓控制说明）、检测规则（限 `is:public`）、前置条件（移除 `SKILL_CATALOG_PAT`、改用 `GITHUB_TOKEN`）三处已更新；集中式「约束（硬规则）」整节因 AGENTS.md 为受保护文件、本次写入未获授权暂未加入，待你批准后补
+- 新增「约束（硬规则）」整节（用途唯一 / 只读他仓 / 只索引公开仓库 / 最小凭证），并同步收紧 AGENTS.md 自动化表格（移除 `repository_dispatch` + ⚠️ 不跨仓控制说明）、检测规则（限 `is:public`）、前置条件（移除 `SKILL_CATALOG_PAT`、改用 `GITHUB_TOKEN`）
 - 扫描范围由「名下所有仓库」收紧为「名下所有 `is:public` 公开仓库」，私有仓库不再收录（`update-catalog.sh` 搜索词加 `is:public`）
 - `skill-catalog.yml` 移除 `repository_dispatch` 监听（不再响应其他 skill 仓库的 release/push webhook）
 - `skill-catalog.yml` 的 `GH_TOKEN` 由 `secrets.SKILL_CATALOG_PAT`（scope: `repo`，可跨仓写）改为 `github.token`（本仓 `GITHUB_TOKEN`，`contents: write` 仅用于提交索引）
