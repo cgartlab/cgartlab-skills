@@ -11,11 +11,10 @@
 
 | Skill | Kind | Version | Description | Updated |
 |-------|------|---------|-------------|---------|
-| [blacklight-weekly](https://github.com/cgartlab/blacklight-weekly) | skill | v0.1.1 | An Agent Skill that automates the first-draft production of Blacklight Weekly. | 2026-10-18 |
-| [news-report](https://github.com/cgartlab/news-report) | skill | v0.3.0 | news-report — a modular news-gathering Agent Skill: browse feeds and search articles across pluggable information sources (Miniflux RSS via MCP included). | 2026-10-18 |
-| [person-profile](https://github.com/cgartlab/person-profile) | skill | v0.1.1 | 人物档案方法论独立 skill 项目（Skill for Person Profile Creation） | 2026-10-18 |
+| [news-report](https://github.com/cgartlab/news-report) | skill | v0.3.0 | news-report — a modular news-gathering Agent Skill: browse feeds and search articles across pluggable information sources (Miniflux RSS via MCP included). | 2026-10-23 |
+| [person-profile](https://github.com/cgartlab/person-profile) | skill | v0.2.2 | 人物档案方法论独立 skill 项目（Skill for Person Profile Creation） | 2026-10-23 |
 
-<sup>最后更新: 2026-10-18 · 收录条件：根目录 SKILL.md 的 frontmatter 含 name / description / metadata.kind（kind ∈ skill, agent, mcp），且仓库已发布 Release</sup>
+<sup>最后更新: 2026-10-23 · 收录条件：根目录 SKILL.md 的 frontmatter 含 name / description / metadata.kind（kind ∈ skill, agent, mcp），且仓库已发布 Release</sup>
 
 ---
 
