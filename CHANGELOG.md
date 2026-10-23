@@ -6,6 +6,25 @@
 
 > 因本仓库无 Release Tag，各节标题不使用版本号，也不提供 compare 链接；条目内已有的 commit 短 SHA 即为溯源锚点。
 
+## 2026-10-23
+
+> **一句话概括**：Git 分支清理（废弃被 main 取代的 feature 分支、删除本地与 11 个已合并远程分支）+ 沉淀「开 PR 前先对当前 origin/main 做净 diff」的教训到 LESSONS.md。**你不需要做任何事**（索引自动更新）；若你维护的 skill 仓库尚未发布 Release，仍不会被收录。
+
+### Changed
+
+- 废弃并删除本地 `feat/reusable-publish-workflow` 分支：其名义 feat（`publish-skill.yml`）已由 #34 合入 main，且 main 在 d7dc8e4 主动删除了该分支残留的 `auto-assign.yml` / `auto-label.yml` → 分支已被 main 完全取代，无有效净贡献
+- 删除本地已合并分支 `docs/changelog-readability`（已通过 #32 合入 main）
+
+### Removed
+
+- 用 `git push --force-with-lease` 删除 11 个已合并远程分支（均 `--merged origin/main`、无开放 PR、非受保护）：`ci/quality-gates`、`dev-catalog-person-profile`、`docs/changelog`、`docs/changelog-readability`、`feat/skill-md-deadlink-guard`、`fix/catalog-404-no-release`、`fix/catalog-rate-limit`、`fix/catalog-silent-release-failures`、`fix/labeler-adapt`、`fix/workflow-concurrency`、`test/catalog-script-suite`
+
+### Added
+
+- LESSONS.md 新增「开 PR 前先对当前 origin/main 做净 diff」与「本机跑 attention 的 bash 脚本需剥离 MSYS 路径转换」两条教训（见本提交）
+
+---
+
 ## 2026-10-18（未发布）
 
 > **一句话概括**：收录规则重写为 frontmatter 契约 + Release 硬门槛，扫描全部 cgartlab 仓库而非按 `-skill` 后缀过滤。影响：仓库改名不再影响收录，契约满足即自动收录；旧的硬编码例外列表作废。**你不需要做任何事**（索引自动更新），但若你维护的 skill 仓库尚未发布 Release，将不再被收录。

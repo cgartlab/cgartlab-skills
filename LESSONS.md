@@ -43,3 +43,11 @@
 
 ### README 自动生成
 - 失误：手动编辑 README.md，下次自动扫描覆盖手动改动 → 规则：README.md 由工作流自动生成，不要手动编辑（见 AGENTS.md「仓库结构」）
+
+## Git 工作流
+
+### 开 PR 前先对【当前】origin/main 做净 diff
+- 失误：立正巡检时，分支相对会话开始时的 main 有净差异（如 2 个文件），于是计划开 PR；但 origin/main 在巡检过程中被 fetch 更新（或远端 tracking 本就比本地新），实际 main 已通过别的 PR 合入同等工作、并主动删除了那 2 个文件 → 分支已被 main 完全取代，开 PR 等于推翻 main 的删除决定，白干 → 规则：开 PR 前用 `git diff origin/main..HEAD`（必要时先 `git fetch`）取【当前】origin/main 的净差异；若净差异恰好是 main 最近一个 commit 故意删除的内容，废弃该分支而非开 PR。
+
+### 本机跑 attention 的 bash 脚本需剥离 MSYS 路径转换
+- 失误：本机 bash 环境设了 `MSYS2_ARG_CONV_EXCL=*` 与 `MSYS_NO_PATHCONV=1`，attention 的 `scripts/*.sh` 把原生 `git` 调用传 `D:/...` 路径时，关掉转换反而让脚本拿到裸盘符路径、部分 git 子命令静默失败（`grep Aborted`、采集字段缺失） → 规则：调用前 `env -u MSYS2_ARG_CONV_EXCL -u MSYS_NO_PATHCONV bash "<skill>/scripts/x.sh" --repo "D:/repo"`；仓库路径用原生 `D:/...` 正斜杠。
