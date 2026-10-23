@@ -6,6 +6,24 @@
 
 > 因本仓库无 Release Tag，各节标题不使用版本号，也不提供 compare 链接；条目内已有的 commit 短 SHA 即为溯源锚点。
 
+## 2026-10-24
+
+> **一句话概括**：收紧索引仓库定位——**只作索引、不控制他仓、只索引公开仓库**。移除 `repository_dispatch` 跨仓库触发与 `repo` scope 的 `SKILL_CATALOG_PAT`，改用默认 `GITHUB_TOKEN`；扫描范围限 `is:public`。**你不需要做任何事**（索引自动更新）；若你维护私有 skill 仓库，它将不再出现在索引中。
+
+### Changed
+
+- 约束落地：AGENTS.md 自动化表格（移除 `repository_dispatch` + ⚠️ 不跨仓控制说明）、检测规则（限 `is:public`）、前置条件（移除 `SKILL_CATALOG_PAT`、改用 `GITHUB_TOKEN`）三处已更新；集中式「约束（硬规则）」整节因 AGENTS.md 为受保护文件、本次写入未获授权暂未加入，待你批准后补
+- 扫描范围由「名下所有仓库」收紧为「名下所有 `is:public` 公开仓库」，私有仓库不再收录（`update-catalog.sh` 搜索词加 `is:public`）
+- `skill-catalog.yml` 移除 `repository_dispatch` 监听（不再响应其他 skill 仓库的 release/push webhook）
+- `skill-catalog.yml` 的 `GH_TOKEN` 由 `secrets.SKILL_CATALOG_PAT`（scope: `repo`，可跨仓写）改为 `github.token`（本仓 `GITHUB_TOKEN`，`contents: write` 仅用于提交索引）
+- AGENTS.md / README 同步移除「自动触发（webhook）」与「需设置 SKILL_CATALOG_PAT」说明
+
+### Removed
+
+- 对 `SKILL_CATALOG_PAT` secret 的依赖（建议从仓库 Secrets 删除，消除跨仓库写风险）
+
+---
+
 ## 2026-10-18（未发布）
 
 > **一句话概括**：收录规则重写为 frontmatter 契约 + Release 硬门槛，扫描全部 cgartlab 仓库而非按 `-skill` 后缀过滤。影响：仓库改名不再影响收录，契约满足即自动收录；旧的硬编码例外列表作废。**你不需要做任何事**（索引自动更新），但若你维护的 skill 仓库尚未发布 Release，将不再被收录。

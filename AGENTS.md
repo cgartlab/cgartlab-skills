@@ -35,14 +35,15 @@ cgartlab-skills/
 
 | 事件 | 行为 |
 |------|------|
-| 定时 (每周日 06:00 UTC) | 扫描所有 `-skill` 仓库，更新 `skills.json` + `README.md` |
+| 定时 (每周日 06:00 UTC) | 扫描 `cgartlab` 名下所有【公开】仓库，更新 `skills.json` + `README.md` |
 | 手动触发 (workflow_dispatch) | 同上 |
-| `repository_dispatch` (webhook) | 可配置从 skill 仓库的 release/push 触发更新 |
+
+> ⚠️ 本仓库**不**提供、监听或消费任何来自其他 skill 仓库的触发 / 工作流 / 复用流程（已移除 `repository_dispatch`，禁用跨仓库控制）。
 
 ### 检测规则
 
 ```
-扫描 cgartlab 名下所有仓库（排除 cgartlab-skills 自身）
+扫描 cgartlab 名下所有【公开/public】仓库（排除 cgartlab-skills 自身；不索引私有仓库）
   → 仓库根目录必须存在 SKILL.md，否则跳过
   → 解析 SKILL.md YAML frontmatter，必须包含 name、description 与 metadata.kind，
      且 metadata.kind 必须在 {skill, agent, mcp} 中，否则跳过
@@ -64,7 +65,9 @@ cgartlab-skills/
 
 ## 前置条件
 
-仓库 Secret **SKILL_CATALOG_PAT**（GitHub Personal Access Token, scope: `repo`），用于从私有仓库读取元数据。
+无特殊 secret。自动化使用本仓库工作流的默认 **GITHUB_TOKEN**（`contents: write`，仅用于提交 `skills.json` / `README.md`）。
+
+> 历史遗留的 **SKILL_CATALOG_PAT**（scope: `repo`）已不再需要——本仓库只索引公开仓库、且对其他仓库保持只读，应**删除**该 secret 以消除跨仓库写风险。
 
 ---
 

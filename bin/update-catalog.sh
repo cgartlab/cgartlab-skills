@@ -2,7 +2,9 @@
 # update-catalog.sh — Scan cgartlab skill repos and regenerate skills.json + README.md
 #
 # Detection rule (D: frontmatter contract + release gate):
-#   1. Scan ALL repos owned by GH_OWNER (name is irrelevant).
+#   1. Scan PUBLIC repos owned by GH_OWNER (name is irrelevant). Private repos
+#      are excluded by the is:public search filter — this index only catalogs
+#      public skills and never reads/touches private repos.
 #   2. A repo is a catalogued skill ONLY IF its root SKILL.md frontmatter
 #      contains name, description and metadata.kind, AND metadata.kind is one
 #      of skill|agent|mcp.
@@ -12,7 +14,7 @@
 #      reason is printed to stderr so misconfigured repos stay visible.
 #
 # Requires: gh, jq
-# Env:      GH_TOKEN (GitHub PAT with repo scope)
+# Env:      GH_TOKEN (defaults to GITHUB_TOKEN; public repos only, no repo-scoped PAT)
 #           GH_OWNER (default: cgartlab)
 #
 # Usage:    GH_TOKEN=xxx bash bin/update-catalog.sh
@@ -93,17 +95,15 @@ api_call() {
   done
 }
 
-echo "[*] Scanning ALL repos of $OWNER (frontmatter contract + release gate) ..."
+echo "[*] Scanning PUBLIC repos of $OWNER (frontmatter contract + release gate) ..."
 
-# Fetch all repos for the owner, exclude this repo.
-# Enumerate ALL repos of the owner. search/repositories is used instead of
-# /users/<owner>/repos because the latter returns an INCOMPLETE list of private
-# repos (observed 2026-10: 25 of 47 returned, silently dropping blacklight-weekly
-# and news-report). search returns the full set for user:<owner> queries.
+# Fetch all PUBLIC repos for the owner, exclude this repo.
+# search/repositories with `is:public` is used (not /users/<owner>/repos) so the
+# index only ever sees public skills — this repo must stay read-only w.r.t. other
+# repos and must never index or read private repos.
 # A freshly renamed repo may lag in the search index; that is a bounded delay
-# (minutes) and self-heals on the next run, which is acceptable versus silently
-# missing private repos forever.
-if ! REPOS=$(api_call "search/repositories?q=user:$OWNER&per_page=100" --paginate \
+# (minutes) and self-heals on the next run.
+if ! REPOS=$(api_call "search/repositories?q=user:$OWNER is:public&per_page=100" --paginate \
   --jq '[.items[] | select(.full_name != "cgartlab/cgartlab-skills")
         | {name, full_name, description, updated_at, html_url}]' \
   | jq -s 'add // []'); then
@@ -308,7 +308,7 @@ cat > README.md << EOF
 # CGArtLab Skills Catalog
 
 > 个人 AI Agent Skills 索引目录。
-> 本仓库自动扫描 \`cgartlab\` 名下所有仓库，按 **SKILL.md frontmatter 契约 + Release 硬门槛** 收录，收集类型、摘要、版本和链接。
+> 本仓库自动扫描 \`cgartlab\` 名下所有【公开/public】仓库，按 **SKILL.md frontmatter 契约 + Release 硬门槛** 收录，收集类型、摘要、版本和链接。
 
 **授权**: [CC BY-NC-SA 4.0](LICENSE) · **来源**: [github.com/cgartlab/cgartlab-skills](https://github.com/cgartlab/cgartlab-skills)
 
@@ -356,13 +356,12 @@ metadata:
 
 ## 🔄 更新方式
 
-本仓库通过 GitHub Actions 自动更新：
+本仓库通过 GitHub Actions 自动更新（仅本仓调度，不响应也不控制其他仓库）：
 
 - **定时扫描**: 每周一次
 - **手动触发**: 前往 Actions → Update Skill Catalog → Run workflow
-- **自动触发**（可选）: skill 仓库 release 时可配置 webhook 触发更新
 
-> 要求仓库设置 **SKILL_CATALOG_PAT** secret（GitHub Personal Access Token，scope: \`repo\`）。
+> 仅索引公开仓库，使用本仓默认 **GITHUB_TOKEN**，无需任何跨仓库 secret。
 
 ---
 

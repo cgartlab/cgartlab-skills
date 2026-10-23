@@ -1,7 +1,7 @@
 # CGArtLab Skills Catalog
 
 > 个人 AI Agent Skills 索引目录。
-> 本仓库自动扫描 `cgartlab` 名下所有仓库，按 **SKILL.md frontmatter 契约 + Release 硬门槛** 收录，收集类型、摘要、版本和链接。
+> 本仓库自动扫描 `cgartlab` 名下所有【公开/public】仓库，按 **SKILL.md frontmatter 契约 + Release 硬门槛** 收录，收集类型、摘要、版本和链接。
 
 **授权**: [CC BY-NC-SA 4.0](LICENSE) · **来源**: [github.com/cgartlab/cgartlab-skills](https://github.com/cgartlab/cgartlab-skills)
 
@@ -51,13 +51,12 @@ metadata:
 
 ## 🔄 更新方式
 
-本仓库通过 GitHub Actions 自动更新：
+本仓库通过 GitHub Actions 自动更新（仅本仓调度，不响应也不控制其他仓库）：
 
 - **定时扫描**: 每周一次
 - **手动触发**: 前往 Actions → Update Skill Catalog → Run workflow
-- **自动触发**（可选）: skill 仓库 release 时可配置 webhook 触发更新
 
-> 要求仓库设置 **SKILL_CATALOG_PAT** secret（GitHub Personal Access Token，scope: `repo`）。
+> 仅索引公开仓库，使用本仓默认 **GITHUB_TOKEN**，无需任何跨仓库 secret。
 
 ---
 
