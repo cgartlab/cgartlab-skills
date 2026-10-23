@@ -3,8 +3,8 @@
 #
 # Detection rule (D: frontmatter contract + release gate):
 #   1. Scan PUBLIC repos owned by GH_OWNER (name is irrelevant). Private repos
-#      are excluded by the is:public search filter — this index only catalogs
-#      public skills and never reads/touches private repos.
+#      are excluded by the `visibility=public` filter on the core listing API —
+#      this index only catalogs public skills and never reads/touches private repos.
 #   2. A repo is a catalogued skill ONLY IF its root SKILL.md frontmatter
 #      contains name, description and metadata.kind, AND metadata.kind is one
 #      of skill|agent|mcp.
@@ -98,13 +98,15 @@ api_call() {
 echo "[*] Scanning PUBLIC repos of $OWNER (frontmatter contract + release gate) ..."
 
 # Fetch all PUBLIC repos for the owner, exclude this repo.
-# search/repositories with `is:public` is used (not /users/<owner>/repos) so the
-# index only ever sees public skills — this repo must stay read-only w.r.t. other
-# repos and must never index or read private repos.
-# A freshly renamed repo may lag in the search index; that is a bounded delay
-# (minutes) and self-heals on the next run.
-if ! REPOS=$(api_call "search/repositories?q=user:$OWNER is:public&per_page=100" --paginate \
-  --jq '[.items[] | select(.full_name != "cgartlab/cgartlab-skills")
+# Core API `users/<owner>/repos?visibility=public` is used (NOT the Search API
+# `search/repositories`): the Search API is rate-limit/abuse-prone and was failing
+# on GitHub-hosted runners, whereas the core listing API is reliable. The
+# `visibility=public` filter guarantees this repo only ever sees public skills and
+# never reads/touches private repos.
+# A freshly renamed repo may lag in the listing; that is a bounded delay and
+# self-heals on the next run.
+if ! REPOS=$(api_call "users/$OWNER/repos?visibility=public&per_page=100&type=owner" --paginate \
+  --jq '[.[] | select(.full_name != "cgartlab/cgartlab-skills")
         | {name, full_name, description, updated_at, html_url}]' \
   | jq -s 'add // []'); then
   echo "[!] FATAL: could not list repos for $OWNER — refusing to write a partial catalog" >&2

@@ -10,7 +10,7 @@
 #   api_error          : repo listing endpoint fails (non-zero exit + stderr)
 #
 # Recognized calls:
-#   gh api "search/repositories?q=user:..." [--paginate] [--jq ...]
+#   gh api "users/<owner>/repos?visibility=public..." [--paginate] [--jq ...]
 #   gh api -H "Accept: application/vnd.github.raw" "/repos/<full>/contents/SKILL.md"
 #   gh api "/repos/<full>/releases/latest" [--jq ...]
 set -uo pipefail
@@ -52,7 +52,7 @@ if [[ -z "$endpoint" ]]; then
 fi
 
 # --- search/repositories ---------------------------------------------------
-if [[ "$endpoint" == search/repositories* ]]; then
+if [[ "$endpoint" == search/repositories* || "$endpoint" == users/*/repos* ]]; then
   if [[ "${MOCK_MODE:-}" == "api_error" ]]; then
     echo "mock gh: simulated repo listing failure" >&2
     exit 1
