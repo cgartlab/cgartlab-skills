@@ -22,6 +22,10 @@
 
 - 对 `SKILL_CATALOG_PAT` secret 的依赖（建议从仓库 Secrets 删除，消除跨仓库写风险）
 
+### Fixed
+
+- `update-catalog.sh` 仓库列举由 Search API（`search/repositories`）改用核心 API（`users/<owner>/repos?visibility=public`），修复 GitHub 托管 runner 上 Search API 限流/失败导致目录工作流 `exit 1`、无法生成索引的问题（`tests/fixtures/gh` 同步支持新端点）
+
 ---
 
 ## 2026-10-23
