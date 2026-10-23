@@ -6,6 +6,24 @@
 
 > 因本仓库无 Release Tag，各节标题不使用版本号，也不提供 compare 链接；条目内已有的 commit 短 SHA 即为溯源锚点。
 
+## 2026-10-24
+
+> **一句话概括**：收紧索引仓库定位——**只作索引、不控制他仓、只索引公开仓库**。移除 `repository_dispatch` 跨仓库触发与 `repo` scope 的 `SKILL_CATALOG_PAT`，改用默认 `GITHUB_TOKEN`；扫描范围限 `is:public`。**你不需要做任何事**（索引自动更新）；若你维护私有 skill 仓库，它将不再出现在索引中。
+
+### Changed
+
+- 新增「约束（硬规则）」整节（用途唯一 / 只读他仓 / 只索引公开仓库 / 最小凭证），并同步收紧 AGENTS.md 自动化表格（移除 `repository_dispatch` + ⚠️ 不跨仓控制说明）、检测规则（限 `is:public`）、前置条件（移除 `SKILL_CATALOG_PAT`、改用 `GITHUB_TOKEN`）
+- 扫描范围由「名下所有仓库」收紧为「名下所有 `is:public` 公开仓库」，私有仓库不再收录（`update-catalog.sh` 搜索词加 `is:public`）
+- `skill-catalog.yml` 移除 `repository_dispatch` 监听（不再响应其他 skill 仓库的 release/push webhook）
+- `skill-catalog.yml` 的 `GH_TOKEN` 由 `secrets.SKILL_CATALOG_PAT`（scope: `repo`，可跨仓写）改为 `github.token`（本仓 `GITHUB_TOKEN`，`contents: write` 仅用于提交索引）
+- AGENTS.md / README 同步移除「自动触发（webhook）」与「需设置 SKILL_CATALOG_PAT」说明
+
+### Removed
+
+- 对 `SKILL_CATALOG_PAT` secret 的依赖（建议从仓库 Secrets 删除，消除跨仓库写风险）
+
+---
+
 ## 2026-10-23
 
 > **一句话概括**：Git 分支清理（废弃被 main 取代的 feature 分支、删除本地与 11 个已合并远程分支）+ 沉淀「开 PR 前先对当前 origin/main 做净 diff」的教训到 LESSONS.md。**你不需要做任何事**（索引自动更新）；若你维护的 skill 仓库尚未发布 Release，仍不会被收录。
