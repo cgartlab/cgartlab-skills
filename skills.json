@@ -1,13 +1,13 @@
 {
-  "updatedAt": "2026-11-01T11:29:37Z",
+  "updatedAt": "2026-11-01T12:38:22Z",
   "skills": [
     {
       "description": "Code review agent for designer.",
       "full_name": "cgartlab/argus",
       "html_url": "https://github.com/cgartlab/argus",
       "name": "argus",
-      "updated_at": "2026-11-01T11:22:33Z",
-      "version": "v0.6.7",
+      "updated_at": "2026-11-01T11:50:04Z",
+      "version": "v0.6.8",
       "kind": "skill"
     },
     {
@@ -15,7 +15,7 @@
       "full_name": "cgartlab/attention",
       "html_url": "https://github.com/cgartlab/attention",
       "name": "attention",
-      "updated_at": "2026-11-01T11:22:41Z",
+      "updated_at": "2026-11-01T11:51:38Z",
       "version": "v0.1.1",
       "kind": "skill"
     },
@@ -69,7 +69,7 @@
       "full_name": "cgartlab/news-report",
       "html_url": "https://github.com/cgartlab/news-report",
       "name": "news-report",
-      "updated_at": "2026-10-23T16:41:29Z",
+      "updated_at": "2026-11-01T11:29:19Z",
       "version": "v0.3.0",
       "kind": "skill"
     },
