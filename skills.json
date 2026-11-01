@@ -1,6 +1,69 @@
 {
-  "updatedAt": "2026-10-25T10:40:01Z",
+  "updatedAt": "2026-11-01T11:29:37Z",
   "skills": [
+    {
+      "description": "Code review agent for designer.",
+      "full_name": "cgartlab/argus",
+      "html_url": "https://github.com/cgartlab/argus",
+      "name": "argus",
+      "updated_at": "2026-11-01T11:22:33Z",
+      "version": "v0.6.7",
+      "kind": "skill"
+    },
+    {
+      "description": "让项目随时做好准备",
+      "full_name": "cgartlab/attention",
+      "html_url": "https://github.com/cgartlab/attention",
+      "name": "attention",
+      "updated_at": "2026-11-01T11:22:41Z",
+      "version": "v0.1.1",
+      "kind": "skill"
+    },
+    {
+      "description": "harness-agnostic unified search skill — 9 backends, routing rules, key-less web_fetch support",
+      "full_name": "cgartlab/cgartlab-search",
+      "html_url": "https://github.com/cgartlab/cgartlab-search",
+      "name": "cgartlab-search",
+      "updated_at": "2026-11-01T11:22:50Z",
+      "version": "v0.1.1",
+      "kind": "skill"
+    },
+    {
+      "description": "Hermes Agent Skill: universal downloader",
+      "full_name": "cgartlab/down",
+      "html_url": "https://github.com/cgartlab/down",
+      "name": "down",
+      "updated_at": "2026-11-01T11:23:16Z",
+      "version": "v0.2.0",
+      "kind": "skill"
+    },
+    {
+      "description": "解决GitHub的访问",
+      "full_name": "cgartlab/goto-github",
+      "html_url": "https://github.com/cgartlab/goto-github",
+      "name": "goto-github",
+      "updated_at": "2026-11-01T11:23:25Z",
+      "version": "v2.1.0",
+      "kind": "skill"
+    },
+    {
+      "description": "SenseNova 文生图 Agent Skill — 默认无水印/最高画质、先问清意图再生成、图片+元数据落盘",
+      "full_name": "cgartlab/image-by-sensenova",
+      "html_url": "https://github.com/cgartlab/image-by-sensenova",
+      "name": "image-by-sensenova",
+      "updated_at": "2026-11-01T11:22:58Z",
+      "version": "v0.1.0",
+      "kind": "skill"
+    },
+    {
+      "description": "Code agent for designer.",
+      "full_name": "cgartlab/kold",
+      "html_url": "https://github.com/cgartlab/kold",
+      "name": "kold",
+      "updated_at": "2026-11-01T11:24:59Z",
+      "version": "v0.1.0",
+      "kind": "skill"
+    },
     {
       "description": "news-report — a modular news-gathering Agent Skill: browse feeds and search articles across pluggable information sources (Miniflux RSS via MCP included).",
       "full_name": "cgartlab/news-report",
@@ -15,8 +78,17 @@
       "full_name": "cgartlab/person-profile",
       "html_url": "https://github.com/cgartlab/person-profile",
       "name": "person-profile",
-      "updated_at": "2026-10-23T17:00:18Z",
-      "version": "v0.2.2",
+      "updated_at": "2026-11-01T11:14:53Z",
+      "version": "v0.2.4",
+      "kind": "skill"
+    },
+    {
+      "description": "结构化长文写作 Skill，全程模型驱动无脚本，自动探测 harness 环境。",
+      "full_name": "cgartlab/quill",
+      "html_url": "https://github.com/cgartlab/quill",
+      "name": "quill",
+      "updated_at": "2026-11-01T11:23:07Z",
+      "version": "v0.11.2",
       "kind": "skill"
     }
   ]
