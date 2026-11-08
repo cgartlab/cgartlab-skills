@@ -22,10 +22,10 @@
 
 | Skill | Kind | Version | Description | Updated |
 |-------|------|---------|-------------|---------|
-| [argus](https://github.com/cgartlab/argus) | skill | v0.6.8 | Code review agent for designer. | 2026-11-01 |
+| [argus](https://github.com/cgartlab/argus) | skill | v0.6.8 | Code review agent for designer. | 2026-11-06 |
 | [attention](https://github.com/cgartlab/attention) | skill | v0.1.1 | 让项目随时做好准备 | 2026-11-01 |
 | [cgartlab-search](https://github.com/cgartlab/cgartlab-search) | skill | v0.1.1 | harness-agnostic unified search skill — 9 backends, routing rules, key-less web_fetch support | 2026-11-01 |
-| [down](https://github.com/cgartlab/down) | skill | v0.2.0 | Hermes Agent Skill: universal downloader | 2026-11-01 |
+| [down](https://github.com/cgartlab/down) | skill | v0.2.0 | Hermes Agent Skill: universal downloader | 2026-11-06 |
 | [goto-github](https://github.com/cgartlab/goto-github) | skill | v2.1.0 | 解决GitHub的访问 | 2026-11-01 |
 | [image-by-sensenova](https://github.com/cgartlab/image-by-sensenova) | skill | v0.1.0 | SenseNova 文生图 Agent Skill — 默认无水印/最高画质、先问清意图再生成、图片+元数据落盘 | 2026-11-01 |
 | [kold](https://github.com/cgartlab/kold) | skill | v0.1.0 | Code agent for designer. | 2026-11-01 |
@@ -33,7 +33,7 @@
 | [person-profile](https://github.com/cgartlab/person-profile) | skill | v0.2.4 | 人物档案方法论独立 skill 项目（Skill for Person Profile Creation） | 2026-11-01 |
 | [quill](https://github.com/cgartlab/quill) | skill | v0.11.2 | 结构化长文写作 Skill，全程模型驱动无脚本，自动探测 harness 环境。 | 2026-11-01 |
 
-<sup>最后更新: 2026-11-01 · 收录条件：仓库根目录的 `SKILL.md` frontmatter 含 `name` / `description` / `metadata.kind`（kind 为 `skill`、`agent` 或 `mcp`），且已发布 Release</sup>
+<sup>最后更新: 2026-11-08 · 收录条件：仓库根目录的 `SKILL.md` frontmatter 含 `name` / `description` / `metadata.kind`（kind 为 `skill`、`agent` 或 `mcp`），且已发布 Release</sup>
 
 > **Kind 是什么？** 它标明了技能的类别：`skill`（普通技能）/ `agent`（可自主跑一段任务的代理）/ `mcp`（对接某个 MCP 服务的技能）。
 
